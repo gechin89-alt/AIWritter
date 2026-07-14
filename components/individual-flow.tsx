@@ -1,14 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PlatformToggle } from "./platform-toggle";
+import { ChoiceGroup } from "./choice-group";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 type Platform = "XHS" | "INSTAGRAM";
 
 export function IndividualFlow() {
   const t = useTranslations("individual");
+
+  const identityOptions = t.raw("identityOptions") as string[];
+  const toneOptions = t.raw("toneOptions") as string[];
+  const styleOptions = t.raw("styleOptions") as string[];
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPath, setMediaPath] = useState<string | null>(null);
@@ -28,6 +33,17 @@ export function IndividualFlow() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const previewUrl = useMemo(
+    () => (mediaFile ? URL.createObjectURL(mediaFile) : null),
+    [mediaFile],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   async function uploadMediaIfNeeded(): Promise<string | undefined> {
     if (!mediaFile) return undefined;
@@ -149,7 +165,7 @@ export function IndividualFlow() {
     <div className="w-full max-w-lg">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
 
-      <div className="mt-6 flex flex-col gap-4">
+      <div className="mt-6 flex flex-col gap-5">
         <div>
           <label className="text-sm font-medium">{t("stepMedia")}</label>
           <input
@@ -161,36 +177,50 @@ export function IndividualFlow() {
             }}
             className="mt-1 block w-full text-sm"
           />
+          {previewUrl && mediaFile && (
+            <div className="mt-3">
+              {mediaFile.type.startsWith("video/") ? (
+                <video
+                  src={previewUrl}
+                  controls
+                  className="max-h-64 rounded-lg border border-zinc-200 dark:border-zinc-800"
+                />
+              ) : (
+                // Local blob preview — next/image can't optimize blob: URLs
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewUrl}
+                  alt=""
+                  className="max-h-64 rounded-lg border border-zinc-200 object-contain dark:border-zinc-800"
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <div>
           <label className="text-sm font-medium">{t("identity")}</label>
-          <input
-            value={identity}
-            onChange={(e) => setIdentity(e.target.value)}
-            placeholder={t("identityPlaceholder")}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          />
+          <div className="mt-2">
+            <ChoiceGroup
+              options={identityOptions}
+              value={identity}
+              onChange={setIdentity}
+            />
+          </div>
         </div>
 
         <div>
           <label className="text-sm font-medium">{t("tone")}</label>
-          <input
-            value={tone}
-            onChange={(e) => setTone(e.target.value)}
-            placeholder={t("tonePlaceholder")}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          />
+          <div className="mt-2">
+            <ChoiceGroup options={toneOptions} value={tone} onChange={setTone} />
+          </div>
         </div>
 
         <div>
           <label className="text-sm font-medium">{t("style")}</label>
-          <input
-            value={style}
-            onChange={(e) => setStyle(e.target.value)}
-            placeholder={t("stylePlaceholder")}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          />
+          <div className="mt-2">
+            <ChoiceGroup options={styleOptions} value={style} onChange={setStyle} />
+          </div>
         </div>
 
         <div>
