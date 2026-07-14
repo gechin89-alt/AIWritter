@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Platform {
+  XHS
+  INSTAGRAM
+}
+
+enum SubmissionStatus {
+  DRAFT
+  POSTED
+  VERIFIED
+}
+
+model User {
+  id             String           @id @default(cuid())
+  name           String
+  phone          String           @unique
+  passwordHash   String
+  role           Role             @default(USER)
+  locale         String           @default("en")
+  createdAt      DateTime         @default(now())
+  individualPosts IndividualPost[]
+}
+
+model IndividualPost {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  mediaPath         String?
+  identity          String?
+  tone              String?
+  style             String?
+  freeText          String?
+  platform          Platform  @default(XHS)
+  clarifyingHistory String    @default("[]")
+  generatedContent  String?
+  status            String    @default("draft")
+  createdAt         DateTime  @default(now())
+}
+
+model Campaign {
+  id          String                 @id @default(cuid())
+  slug        String                 @unique
+  name        String
+  brandLink   String
+  prizeInfo   String
+  termsText   String
+  active      Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  submissions CommercialSubmission[]
+}
+
+model CommercialSubmission {
+  id               String           @id @default(cuid())
+  campaignId       String
+  campaign         Campaign         @relation(fields: [campaignId], references: [id])
+  name             String
+  phone            String
+  generatedContent String?
+  xhsLink          String?
+  status           SubmissionStatus @default(DRAFT)
+  createdAt        DateTime         @default(now())
+}

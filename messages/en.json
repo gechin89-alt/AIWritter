@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "brand": "XHS Writer",
+    "login": "Log in",
+    "register": "Sign up",
+    "admin": "Admin",
+    "logout": "Log out"
+  },
+  "home": {
+    "title": "Turn your ideas into ready-to-post content",
+    "subtitle": "Generate Xiaohongshu and Instagram posts in your voice, then copy, paste, and publish.",
+    "individualTitle": "Individual Post",
+    "individualDesc": "Upload a photo or video, answer a few quick questions, and get a post ready to publish.",
+    "individualCta": "Create a post",
+    "commercialTitle": "Commercial Campaign",
+    "commercialDesc": "For brands: let your customers generate a post about your product and join a lucky draw.",
+    "commercialCta": "View a campaign"
+  },
+  "auth": {
+    "loginTitle": "Log in",
+    "registerTitle": "Create an account",
+    "name": "Name",
+    "phone": "Phone number",
+    "password": "Password",
+    "submitLogin": "Log in",
+    "submitRegister": "Sign up",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "error": "Something went wrong. Please check your details and try again."
+  },
+  "individual": {
+    "title": "Create an Individual Post",
+    "stepMedia": "Upload a photo or video",
+    "identity": "Identity / persona",
+    "identityPlaceholder": "e.g. Funny host, Serious reviewer, Warm storyteller",
+    "tone": "Tone of voice",
+    "tonePlaceholder": "e.g. Playful, Sincere, Energetic",
+    "style": "Style",
+    "stylePlaceholder": "e.g. Minimalist, Story-driven, Listicle",
+    "freeText": "Tell us more (optional)",
+    "freeTextPlaceholder": "Anything else you want included in the post...",
+    "platform": "Platform",
+    "generate": "Generate post",
+    "generating": "Generating...",
+    "result": "Your generated post",
+    "copy": "Copy to clipboard",
+    "copied": "Copied!",
+    "clarifyTitle": "Just to confirm the direction"
+  },
+  "commercial": {
+    "questionnaireTitle": "Tell us about your experience",
+    "submitLink": "Submit your post link",
+    "linkPlaceholder": "Paste your Xiaohongshu post link here",
+    "submit": "Submit for the lucky draw",
+    "submitted": "Thanks! Your entry has been recorded.",
+    "terms": "Terms & Conditions"
+  },
+  "admin": {
+    "title": "Admin",
+    "individualPosts": "Individual Posts",
+    "submissions": "Campaign Submissions",
+    "campaigns": "Campaigns",
+    "newCampaign": "New campaign"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "nav": {
+    "brand": "小红书写手",
+    "login": "登录",
+    "register": "注册",
+    "admin": "后台管理",
+    "logout": "退出登录"
+  },
+  "home": {
+    "title": "把你的想法变成即刻发布的内容",
+    "subtitle": "用你自己的语气生成小红书和 Instagram 帖子，复制、粘贴即可发布。",
+    "individualTitle": "个人帖子",
+    "individualDesc": "上传一张照片或视频，回答几个简单问题，即可获得可直接发布的帖子。",
+    "individualCta": "创建帖子",
+    "commercialTitle": "商业活动",
+    "commercialDesc": "面向品牌方：让客户为你的产品生成帖子，并参与抽奖活动。",
+    "commercialCta": "查看活动"
+  },
+  "auth": {
+    "loginTitle": "登录",
+    "registerTitle": "创建账户",
+    "name": "姓名",
+    "phone": "手机号码",
+    "password": "密码",
+    "submitLogin": "登录",
+    "submitRegister": "注册",
+    "noAccount": "还没有账户？",
+    "haveAccount": "已经有账户？",
+    "error": "出现错误，请检查填写信息后重试。"
+  },
+  "individual": {
+    "title": "创建个人帖子",
+    "stepMedia": "上传照片或视频",
+    "identity": "身份 / 人设",
+    "identityPlaceholder": "例如：搞笑主持人、认真测评者、温暖讲述者",
+    "tone": "语气",
+    "tonePlaceholder": "例如：俏皮、真诚、有活力",
+    "style": "风格",
+    "stylePlaceholder": "例如：简约、故事型、清单型",
+    "freeText": "补充说明（可选）",
+    "freeTextPlaceholder": "还有什么想加入帖子的内容...",
+    "platform": "平台",
+    "generate": "生成帖子",
+    "generating": "生成中...",
+    "result": "生成的帖子",
+    "copy": "复制到剪贴板",
+    "copied": "已复制！",
+    "clarifyTitle": "请确认一下方向"
+  },
+  "commercial": {
+    "questionnaireTitle": "分享一下你的体验",
+    "submitLink": "提交你的帖子链接",
+    "linkPlaceholder": "请粘贴你的小红书帖子链接",
+    "submit": "提交参与抽奖",
+    "submitted": "谢谢！你的参与信息已记录。",
+    "terms": "条款与条件"
+  },
+  "admin": {
+    "title": "后台管理",
+    "individualPosts": "个人帖子记录",
+    "submissions": "活动提交记录",
+    "campaigns": "活动管理",
+    "newCampaign": "新建活动"
+  }
+}

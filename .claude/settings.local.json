@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:xhswriter.ai)",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(node \"C:\\\\Users\\\\GOHENG~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--Work-AiWritter\\\\e3547e8c-6d9c-4c05-9ada-492fc58d8a72\\\\scratchpad\\\\parse_docx.js\")"
+    ]
+  }
+}
