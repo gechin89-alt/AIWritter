@@ -43,7 +43,7 @@ export function NewCampaignForm({ label }: { label: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
       >
         {label}
       </button>
@@ -95,7 +95,7 @@ export function NewCampaignForm({ label }: { label: string }) {
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
         >
           Save
         </button>

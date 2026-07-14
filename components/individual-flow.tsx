@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { PlatformToggle } from "./platform-toggle";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 type Platform = "XHS" | "INSTAGRAM";
@@ -112,7 +113,7 @@ export function IndividualFlow() {
         </div>
         <button
           onClick={handleCopy}
-          className="mt-4 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="mt-4 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
         >
           {copied ? t("copied") : t("copy")}
         </button>
@@ -136,7 +137,7 @@ export function IndividualFlow() {
         <button
           onClick={handleClarifySubmit}
           disabled={loading}
-          className="mt-3 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
         >
           {loading ? t("generating") : t("generate")}
         </button>
@@ -205,14 +206,9 @@ export function IndividualFlow() {
 
         <div>
           <label className="text-sm font-medium">{t("platform")}</label>
-          <select
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value as Platform)}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          >
-            <option value="XHS">Xiaohongshu</option>
-            <option value="INSTAGRAM">Instagram</option>
-          </select>
+          <div className="mt-2">
+            <PlatformToggle value={platform} onChange={setPlatform} />
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -220,7 +216,7 @@ export function IndividualFlow() {
         <button
           onClick={handleGenerate}
           disabled={loading || uploading}
-          className="mt-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
         >
           {loading || uploading ? t("generating") : t("generate")}
         </button>

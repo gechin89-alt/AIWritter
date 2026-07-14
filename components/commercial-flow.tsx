@@ -2,12 +2,22 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { PlatformToggle } from "./platform-toggle";
+import { ChoiceGroup } from "./choice-group";
 
 type Platform = "XHS" | "INSTAGRAM";
 
 export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
   const t = useTranslations("individual");
   const tc = useTranslations("commercial");
+
+  const identityOptions = tc.raw("identityOptions") as string[];
+  const toneOptions = tc.raw("toneOptions") as string[];
+  const styleOptions = tc.raw("styleOptions") as string[];
+
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPath, setMediaPath] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const [identity, setIdentity] = useState("");
   const [tone, setTone] = useState("");
@@ -26,10 +36,31 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  async function uploadMediaIfNeeded(): Promise<string | undefined> {
+    if (!mediaFile) return undefined;
+    if (mediaPath) return mediaPath;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", mediaFile);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("upload failed");
+      const data = await res.json();
+      setMediaPath(data.path);
+      return data.path as string;
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleGenerate() {
     setLoading(true);
     setError(null);
     try {
+      const resolvedMediaPath = await uploadMediaIfNeeded();
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -40,6 +71,7 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
           style,
           freeText,
           commercial: true,
+          mediaPath: resolvedMediaPath,
           history: [],
         }),
       });
@@ -72,6 +104,7 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
           campaignSlug,
           name,
           phone,
+          mediaPath,
           generatedContent: result,
           xhsLink,
         }),
@@ -87,7 +120,7 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
 
   if (submitted) {
     return (
-      <p className="rounded-lg bg-green-50 p-4 text-sm text-green-800 dark:bg-green-950 dark:text-green-200">
+      <p className="rounded-lg bg-brand/10 p-4 text-sm text-brand">
         {tc("submitted")}
       </p>
     );
@@ -102,7 +135,7 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
         </div>
         <button
           onClick={handleCopy}
-          className="mt-4 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="mt-4 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
         >
           {copied ? t("copied") : t("copy")}
         </button>
@@ -132,7 +165,7 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
             <button
               onClick={handleSubmitLink}
               disabled={submitting}
-              className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
             >
               {tc("submit")}
             </button>
@@ -145,62 +178,75 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
   return (
     <div className="w-full max-w-lg">
       <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
-      <div className="mt-6 flex flex-col gap-4">
+      <div className="mt-6 flex flex-col gap-5">
         <div>
-          <label className="text-sm font-medium">{t("identity")}</label>
+          <label className="text-sm font-medium">{tc("stepMedia")}</label>
           <input
-            value={identity}
-            onChange={(e) => setIdentity(e.target.value)}
-            placeholder={t("identityPlaceholder")}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              setMediaFile(e.target.files?.[0] ?? null);
+              setMediaPath(null);
+            }}
+            className="mt-1 block w-full text-sm"
           />
         </div>
+
         <div>
-          <label className="text-sm font-medium">{t("tone")}</label>
-          <input
-            value={tone}
-            onChange={(e) => setTone(e.target.value)}
-            placeholder={t("tonePlaceholder")}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          />
+          <label className="text-sm font-medium">{tc("identity")}</label>
+          <div className="mt-2">
+            <ChoiceGroup
+              options={identityOptions}
+              value={identity}
+              onChange={setIdentity}
+            />
+          </div>
         </div>
+
         <div>
-          <label className="text-sm font-medium">{t("style")}</label>
-          <input
-            value={style}
-            onChange={(e) => setStyle(e.target.value)}
-            placeholder={t("stylePlaceholder")}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          />
+          <label className="text-sm font-medium">{tc("tone")}</label>
+          <div className="mt-2">
+            <ChoiceGroup options={toneOptions} value={tone} onChange={setTone} />
+          </div>
         </div>
+
         <div>
-          <label className="text-sm font-medium">{t("freeText")}</label>
+          <label className="text-sm font-medium">{tc("style")}</label>
+          <div className="mt-2">
+            <ChoiceGroup
+              options={styleOptions}
+              value={style}
+              onChange={setStyle}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium">{tc("freeText")}</label>
           <textarea
             value={freeText}
             onChange={(e) => setFreeText(e.target.value)}
-            placeholder={t("freeTextPlaceholder")}
-            rows={4}
+            placeholder={tc("freeTextPlaceholder")}
+            rows={3}
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           />
         </div>
+
         <div>
           <label className="text-sm font-medium">{t("platform")}</label>
-          <select
-            value={platform}
-            onChange={(e) => setPlatform(e.target.value as Platform)}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          >
-            <option value="XHS">Xiaohongshu</option>
-            <option value="INSTAGRAM">Instagram</option>
-          </select>
+          <div className="mt-2">
+            <PlatformToggle value={platform} onChange={setPlatform} />
+          </div>
         </div>
+
         {error && <p className="text-sm text-red-600">{error}</p>}
+
         <button
           onClick={handleGenerate}
-          disabled={loading}
-          className="mt-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          disabled={loading || uploading}
+          className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
         >
-          {loading ? t("generating") : t("generate")}
+          {loading || uploading ? t("generating") : t("generate")}
         </button>
       </div>
     </div>

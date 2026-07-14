@@ -68,6 +68,7 @@ model CommercialSubmission {
   campaign         Campaign         @relation(fields: [campaignId], references: [id])
   name             String
   phone            String
+  mediaPath        String?
   generatedContent String?
   xhsLink          String?
   status           SubmissionStatus @default(DRAFT)

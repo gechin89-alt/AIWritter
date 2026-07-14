@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const { campaignSlug, name, phone, generatedContent, xhsLink } =
+  const { campaignSlug, name, phone, mediaPath, generatedContent, xhsLink } =
     await req.json();
 
   if (!campaignSlug || !name || !phone || !xhsLink) {
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       campaignId: campaign.id,
       name,
       phone,
+      mediaPath,
       generatedContent,
       xhsLink,
       status: "POSTED",

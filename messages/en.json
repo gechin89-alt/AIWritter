@@ -49,6 +49,25 @@
   },
   "commercial": {
     "questionnaireTitle": "Tell us about your experience",
+    "stepMedia": "Upload a photo (optional)",
+    "identity": "How would you describe yourself?",
+    "tone": "Pick a tone",
+    "style": "Pick a style",
+    "freeText": "Anything else to add? (optional)",
+    "freeTextPlaceholder": "Share a detail you want included...",
+    "identityOptions": [
+      "Authentic sharer",
+      "Professional reviewer",
+      "Lifestyle diarist",
+      "Playful & funny"
+    ],
+    "toneOptions": ["Sincere", "Lively", "Professional", "Heartfelt"],
+    "styleOptions": [
+      "Minimalist",
+      "Storytelling",
+      "Listicle",
+      "Enthusiastic recommendation"
+    ],
     "submitLink": "Submit your post link",
     "linkPlaceholder": "Paste your Xiaohongshu post link here",
     "submit": "Submit for the lucky draw",

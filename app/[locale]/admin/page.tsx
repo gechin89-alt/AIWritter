@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { NewCampaignForm } from "@/components/new-campaign-form";
@@ -69,6 +70,7 @@ export default async function AdminPage({
                 <th className="px-3 py-2">Campaign</th>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Phone</th>
+                <th className="px-3 py-2">Photo</th>
                 <th className="px-3 py-2">Link</th>
                 <th className="px-3 py-2">Status</th>
               </tr>
@@ -80,12 +82,25 @@ export default async function AdminPage({
                   <td className="px-3 py-2">{s.name}</td>
                   <td className="px-3 py-2">{s.phone}</td>
                   <td className="px-3 py-2">
+                    {s.mediaPath && (
+                      <a href={s.mediaPath} target="_blank" rel="noopener noreferrer">
+                        <Image
+                          src={s.mediaPath}
+                          alt=""
+                          width={40}
+                          height={40}
+                          className="h-10 w-10 rounded object-cover"
+                        />
+                      </a>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
                     {s.xhsLink && (
                       <a
                         href={s.xhsLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline"
+                        className="text-brand underline"
                       >
                         {s.xhsLink}
                       </a>

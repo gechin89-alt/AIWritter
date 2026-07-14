@@ -22,34 +22,40 @@ export default async function Home({
       </div>
 
       <div className="mt-12 grid w-full max-w-4xl gap-6 sm:grid-cols-2">
-        <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-            {t("individualTitle")}
-          </h2>
-          <p className="mt-2 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
-            {t("individualDesc")}
-          </p>
-          <Link
-            href="/individual"
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            {t("individualCta")}
-          </Link>
+        <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="h-1.5 bg-accent" />
+          <div className="flex flex-1 flex-col p-6">
+            <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+              {t("individualTitle")}
+            </h2>
+            <p className="mt-2 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
+              {t("individualDesc")}
+            </p>
+            <Link
+              href="/individual"
+              className="mt-6 inline-flex items-center justify-center rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-dark"
+            >
+              {t("individualCta")}
+            </Link>
+          </div>
         </div>
 
-        <div className="flex flex-col rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-            {t("commercialTitle")}
-          </h2>
-          <p className="mt-2 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
-            {t("commercialDesc")}
-          </p>
-          <Link
-            href="/commercial/demo"
-            className="mt-6 inline-flex items-center justify-center rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
-          >
-            {t("commercialCta")}
-          </Link>
+        <div className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="h-1.5 bg-brand" />
+          <div className="flex flex-1 flex-col p-6">
+            <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+              {t("commercialTitle")}
+            </h2>
+            <p className="mt-2 flex-1 text-sm text-zinc-600 dark:text-zinc-400">
+              {t("commercialDesc")}
+            </p>
+            <Link
+              href="/commercial/demo"
+              className="mt-6 inline-flex items-center justify-center rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
+            >
+              {t("commercialCta")}
+            </Link>
+          </div>
         </div>
       </div>
     </div>
