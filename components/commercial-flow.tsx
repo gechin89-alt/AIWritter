@@ -7,13 +7,23 @@ import { ChoiceGroup } from "./choice-group";
 
 type Platform = "XHS" | "INSTAGRAM";
 
-export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
+export function CommercialFlow({
+  campaignSlug,
+  identityOptions: customIdentityOptions,
+  toneOptions: customToneOptions,
+  styleOptions: customStyleOptions,
+}: {
+  campaignSlug: string;
+  identityOptions?: string[];
+  toneOptions?: string[];
+  styleOptions?: string[];
+}) {
   const t = useTranslations("individual");
   const tc = useTranslations("commercial");
 
-  const identityOptions = tc.raw("identityOptions") as string[];
-  const toneOptions = tc.raw("toneOptions") as string[];
-  const styleOptions = tc.raw("styleOptions") as string[];
+  const identityOptions = customIdentityOptions ?? (tc.raw("identityOptions") as string[]);
+  const toneOptions = customToneOptions ?? (tc.raw("toneOptions") as string[]);
+  const styleOptions = customStyleOptions ?? (tc.raw("styleOptions") as string[]);
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPath, setMediaPath] = useState<string | null>(null);

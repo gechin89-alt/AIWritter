@@ -8,7 +8,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { slug, name, brandLink, prizeInfo, termsText } = await req.json();
+  const {
+    slug,
+    name,
+    brandLink,
+    prizeInfo,
+    termsText,
+    identityOptions,
+    toneOptions,
+    styleOptions,
+  }: {
+    slug: string;
+    name: string;
+    brandLink: string;
+    prizeInfo?: string;
+    termsText?: string;
+    identityOptions?: string[];
+    toneOptions?: string[];
+    styleOptions?: string[];
+  } = await req.json();
 
   if (!slug || !name || !brandLink) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -21,6 +39,9 @@ export async function POST(req: NextRequest) {
       brandLink,
       prizeInfo: prizeInfo ?? "",
       termsText: termsText ?? "",
+      identityOptions: identityOptions ? JSON.stringify(identityOptions) : null,
+      toneOptions: toneOptions ? JSON.stringify(toneOptions) : null,
+      styleOptions: styleOptions ? JSON.stringify(styleOptions) : null,
     },
   });
 

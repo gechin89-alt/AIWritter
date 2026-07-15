@@ -3,6 +3,16 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { CommercialFlow } from "@/components/commercial-flow";
 
+function parseOptions(json: string | null): string[] | undefined {
+  if (!json) return undefined;
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export default async function CommercialCampaignPage({
   params,
 }: {
@@ -33,7 +43,12 @@ export default async function CommercialCampaignPage({
       </div>
 
       <div className="mt-10">
-        <CommercialFlow campaignSlug={campaign.slug} />
+        <CommercialFlow
+          campaignSlug={campaign.slug}
+          identityOptions={parseOptions(campaign.identityOptions)}
+          toneOptions={parseOptions(campaign.toneOptions)}
+          styleOptions={parseOptions(campaign.styleOptions)}
+        />
       </div>
     </div>
   );

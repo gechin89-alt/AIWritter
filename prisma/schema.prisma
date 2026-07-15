@@ -51,15 +51,18 @@ model IndividualPost {
 }
 
 model Campaign {
-  id          String                 @id @default(cuid())
-  slug        String                 @unique
-  name        String
-  brandLink   String
-  prizeInfo   String
-  termsText   String
-  active      Boolean                @default(true)
-  createdAt   DateTime               @default(now())
-  submissions CommercialSubmission[]
+  id              String                 @id @default(cuid())
+  slug            String                 @unique
+  name            String
+  brandLink       String
+  prizeInfo       String
+  termsText       String
+  active          Boolean                @default(true)
+  identityOptions String?
+  toneOptions     String?
+  styleOptions    String?
+  createdAt       DateTime               @default(now())
+  submissions     CommercialSubmission[]
 }
 
 model CommercialSubmission {
