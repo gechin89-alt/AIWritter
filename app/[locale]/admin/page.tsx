@@ -5,6 +5,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { NewCampaignForm } from "@/components/new-campaign-form";
 import { CampaignQr } from "@/components/campaign-qr";
+import { CampaignActions } from "@/components/campaign-actions";
 
 export default async function AdminPage({
   params,
@@ -74,7 +75,7 @@ export default async function AdminPage({
           <NewCampaignForm label={t("newCampaign")} />
         </div>
         <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full min-w-[700px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="bg-zinc-100 dark:bg-zinc-900">
               <tr>
                 <th className="px-3 py-2">Slug</th>
@@ -83,6 +84,7 @@ export default async function AdminPage({
                 <th className="px-3 py-2">{t("totalSubmissions")}</th>
                 <th className="px-3 py-2">{t("uniqueParticipants")}</th>
                 <th className="px-3 py-2">{t("qrCode")}</th>
+                <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -106,6 +108,32 @@ export default async function AdminPage({
                           scanLabel={t("scanToJoin")}
                         />
                       )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col items-start gap-2">
+                        {qr && (
+                          <a
+                            href={qr.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-brand underline"
+                          >
+                            {t("view")}
+                          </a>
+                        )}
+                        <CampaignActions
+                          id={c.id}
+                          active={c.active}
+                          hasSubmissions={(stats?.total ?? 0) > 0}
+                          labels={{
+                            activate: t("activate"),
+                            deactivate: t("deactivate"),
+                            deleteLabel: t("delete"),
+                            confirmDelete: t("confirmDelete"),
+                            cannotDelete: t("cannotDelete"),
+                          }}
+                        />
+                      </div>
                     </td>
                   </tr>
                 );

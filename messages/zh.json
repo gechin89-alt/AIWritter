@@ -77,6 +77,12 @@
     "qrCode": "二维码",
     "showQrCode": "显示二维码",
     "hideQrCode": "隐藏二维码",
-    "scanToJoin": "扫码参与活动"
+    "scanToJoin": "扫码参与活动",
+    "view": "查看",
+    "activate": "启用",
+    "deactivate": "停用",
+    "delete": "删除",
+    "confirmDelete": "确定要删除这个活动吗？此操作无法撤销。",
+    "cannotDelete": "该活动已有提交记录，无法删除，请改为停用。"
   }
 }

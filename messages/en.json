@@ -92,6 +92,12 @@
     "qrCode": "QR code",
     "showQrCode": "Show QR code",
     "hideQrCode": "Hide QR code",
-    "scanToJoin": "Scan to join this campaign"
+    "scanToJoin": "Scan to join this campaign",
+    "view": "View",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "delete": "Delete",
+    "confirmDelete": "Delete this campaign? This cannot be undone.",
+    "cannotDelete": "This campaign has submissions and cannot be deleted. Deactivate it instead."
   }
 }
