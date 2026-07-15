@@ -51,6 +51,9 @@ export default async function CommercialCampaignPage({
           identityQuestion={campaign.identityQuestion ?? undefined}
           toneQuestion={campaign.toneQuestion ?? undefined}
           styleQuestion={campaign.styleQuestion ?? undefined}
+          identityIncludeOther={campaign.identityIncludeOther}
+          toneIncludeOther={campaign.toneIncludeOther}
+          styleIncludeOther={campaign.styleIncludeOther}
         />
       </div>
     </div>

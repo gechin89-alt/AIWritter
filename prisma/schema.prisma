@@ -64,6 +64,9 @@ model Campaign {
   identityQuestion String?
   toneQuestion     String?
   styleQuestion    String?
+  identityIncludeOther Boolean @default(false)
+  toneIncludeOther     Boolean @default(false)
+  styleIncludeOther    Boolean @default(false)
   createdAt       DateTime               @default(now())
   submissions     CommercialSubmission[]
 }

@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
-
-function parseOptions(value: string): string[] | undefined {
-  const items = value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return items.length > 0 ? items : undefined;
-}
+import { OptionListEditor } from "./option-list-editor";
 
 export function NewCampaignForm({ label }: { label: string }) {
   const router = useRouter();
@@ -19,14 +12,43 @@ export function NewCampaignForm({ label }: { label: string }) {
   const [brandLink, setBrandLink] = useState("");
   const [prizeInfo, setPrizeInfo] = useState("");
   const [termsText, setTermsText] = useState("");
+
   const [identityQuestion, setIdentityQuestion] = useState("");
-  const [identityOptions, setIdentityOptions] = useState("");
+  const [identityOptions, setIdentityOptions] = useState<string[]>([""]);
+  const [identityIncludeOther, setIdentityIncludeOther] = useState(false);
+
   const [toneQuestion, setToneQuestion] = useState("");
-  const [toneOptions, setToneOptions] = useState("");
+  const [toneOptions, setToneOptions] = useState<string[]>([""]);
+  const [toneIncludeOther, setToneIncludeOther] = useState(false);
+
   const [styleQuestion, setStyleQuestion] = useState("");
-  const [styleOptions, setStyleOptions] = useState("");
+  const [styleOptions, setStyleOptions] = useState<string[]>([""]);
+  const [styleIncludeOther, setStyleIncludeOther] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  function cleanOptions(options: string[]): string[] | undefined {
+    const items = options.map((s) => s.trim()).filter(Boolean);
+    return items.length > 0 ? items : undefined;
+  }
+
+  function resetForm() {
+    setSlug("");
+    setName("");
+    setBrandLink("");
+    setPrizeInfo("");
+    setTermsText("");
+    setIdentityQuestion("");
+    setIdentityOptions([""]);
+    setIdentityIncludeOther(false);
+    setToneQuestion("");
+    setToneOptions([""]);
+    setToneIncludeOther(false);
+    setStyleQuestion("");
+    setStyleOptions([""]);
+    setStyleIncludeOther(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,26 +65,19 @@ export function NewCampaignForm({ label }: { label: string }) {
           prizeInfo,
           termsText,
           identityQuestion: identityQuestion || undefined,
-          identityOptions: parseOptions(identityOptions),
+          identityOptions: cleanOptions(identityOptions),
+          identityIncludeOther,
           toneQuestion: toneQuestion || undefined,
-          toneOptions: parseOptions(toneOptions),
+          toneOptions: cleanOptions(toneOptions),
+          toneIncludeOther,
           styleQuestion: styleQuestion || undefined,
-          styleOptions: parseOptions(styleOptions),
+          styleOptions: cleanOptions(styleOptions),
+          styleIncludeOther,
         }),
       });
       if (!res.ok) throw new Error("failed");
       setOpen(false);
-      setSlug("");
-      setName("");
-      setBrandLink("");
-      setPrizeInfo("");
-      setTermsText("");
-      setIdentityQuestion("");
-      setIdentityOptions("");
-      setToneQuestion("");
-      setToneOptions("");
-      setStyleQuestion("");
-      setStyleOptions("");
+      resetForm();
       router.refresh();
     } catch {
       setError("Failed to create campaign");
@@ -124,49 +139,39 @@ export function NewCampaignForm({ label }: { label: string }) {
       />
 
       <div className="mt-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
-        Optional: customize each questionnaire question and its choices
-        (comma-separated) for this campaign. Leave blank to use the defaults.
-        When you set custom choices, an &quot;Other&quot; free-text choice is
-        added automatically.
+        Optional: customize each questionnaire question. Leave a
+        question&apos;s text and answers blank to use the default for that
+        question.
       </div>
 
-      <input
-        value={identityQuestion}
-        onChange={(e) => setIdentityQuestion(e.target.value)}
-        placeholder="Identity question text, e.g. 你觉得自己更像哪一种？"
-        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-      />
-      <input
-        value={identityOptions}
-        onChange={(e) => setIdentityOptions(e.target.value)}
-        placeholder="Identity options, e.g. 真实分享者, 专业测评者, 生活记录者"
-        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      <OptionListEditor
+        questionPlaceholder="Identity question text, e.g. 你觉得自己更像哪一种？"
+        question={identityQuestion}
+        onQuestionChange={setIdentityQuestion}
+        options={identityOptions}
+        onOptionsChange={setIdentityOptions}
+        includeOther={identityIncludeOther}
+        onIncludeOtherChange={setIdentityIncludeOther}
       />
 
-      <input
-        value={toneQuestion}
-        onChange={(e) => setToneQuestion(e.target.value)}
-        placeholder="Tone question text, e.g. 选择语气"
-        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-      />
-      <input
-        value={toneOptions}
-        onChange={(e) => setToneOptions(e.target.value)}
-        placeholder="Tone options, e.g. 真诚, 活泼, 专业"
-        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      <OptionListEditor
+        questionPlaceholder="Tone question text, e.g. 选择语气"
+        question={toneQuestion}
+        onQuestionChange={setToneQuestion}
+        options={toneOptions}
+        onOptionsChange={setToneOptions}
+        includeOther={toneIncludeOther}
+        onIncludeOtherChange={setToneIncludeOther}
       />
 
-      <input
-        value={styleQuestion}
-        onChange={(e) => setStyleQuestion(e.target.value)}
-        placeholder="Style question text, e.g. 选择风格"
-        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-      />
-      <input
-        value={styleOptions}
-        onChange={(e) => setStyleOptions(e.target.value)}
-        placeholder="Style options, e.g. 简约, 故事叙述, 种草安利"
-        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      <OptionListEditor
+        questionPlaceholder="Style question text, e.g. 选择风格"
+        question={styleQuestion}
+        onQuestionChange={setStyleQuestion}
+        options={styleOptions}
+        onOptionsChange={setStyleOptions}
+        includeOther={styleIncludeOther}
+        onIncludeOtherChange={setStyleIncludeOther}
       />
 
       {error && <p className="text-sm text-red-600">{error}</p>}

@@ -15,6 +15,9 @@ export function CommercialFlow({
   identityQuestion,
   toneQuestion,
   styleQuestion,
+  identityIncludeOther,
+  toneIncludeOther,
+  styleIncludeOther,
 }: {
   campaignSlug: string;
   identityOptions?: string[];
@@ -23,6 +26,9 @@ export function CommercialFlow({
   identityQuestion?: string;
   toneQuestion?: string;
   styleQuestion?: string;
+  identityIncludeOther?: boolean;
+  toneIncludeOther?: boolean;
+  styleIncludeOther?: boolean;
 }) {
   const t = useTranslations("individual");
   const tc = useTranslations("commercial");
@@ -30,11 +36,10 @@ export function CommercialFlow({
   const identityOptions = customIdentityOptions ?? (tc.raw("identityOptions") as string[]);
   const toneOptions = customToneOptions ?? (tc.raw("toneOptions") as string[]);
   const styleOptions = customStyleOptions ?? (tc.raw("styleOptions") as string[]);
-  // "Other" is only auto-added when the campaign has its own custom choices.
   const otherLabel = tc("otherOption");
-  const identityOtherLabel = customIdentityOptions ? otherLabel : undefined;
-  const toneOtherLabel = customToneOptions ? otherLabel : undefined;
-  const styleOtherLabel = customStyleOptions ? otherLabel : undefined;
+  const identityOtherLabel = identityIncludeOther ? otherLabel : undefined;
+  const toneOtherLabel = toneIncludeOther ? otherLabel : undefined;
+  const styleOtherLabel = styleIncludeOther ? otherLabel : undefined;
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPath, setMediaPath] = useState<string | null>(null);
