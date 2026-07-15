@@ -19,8 +19,11 @@ export function NewCampaignForm({ label }: { label: string }) {
   const [brandLink, setBrandLink] = useState("");
   const [prizeInfo, setPrizeInfo] = useState("");
   const [termsText, setTermsText] = useState("");
+  const [identityQuestion, setIdentityQuestion] = useState("");
   const [identityOptions, setIdentityOptions] = useState("");
+  const [toneQuestion, setToneQuestion] = useState("");
   const [toneOptions, setToneOptions] = useState("");
+  const [styleQuestion, setStyleQuestion] = useState("");
   const [styleOptions, setStyleOptions] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -39,8 +42,11 @@ export function NewCampaignForm({ label }: { label: string }) {
           brandLink,
           prizeInfo,
           termsText,
+          identityQuestion: identityQuestion || undefined,
           identityOptions: parseOptions(identityOptions),
+          toneQuestion: toneQuestion || undefined,
           toneOptions: parseOptions(toneOptions),
+          styleQuestion: styleQuestion || undefined,
           styleOptions: parseOptions(styleOptions),
         }),
       });
@@ -51,8 +57,11 @@ export function NewCampaignForm({ label }: { label: string }) {
       setBrandLink("");
       setPrizeInfo("");
       setTermsText("");
+      setIdentityQuestion("");
       setIdentityOptions("");
+      setToneQuestion("");
       setToneOptions("");
+      setStyleQuestion("");
       setStyleOptions("");
       router.refresh();
     } catch {
@@ -115,19 +124,42 @@ export function NewCampaignForm({ label }: { label: string }) {
       />
 
       <div className="mt-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
-        Optional: customize the questionnaire choices for this campaign
-        (comma-separated). Leave blank to use the default options.
+        Optional: customize each questionnaire question and its choices
+        (comma-separated) for this campaign. Leave blank to use the defaults.
+        When you set custom choices, an &quot;Other&quot; free-text choice is
+        added automatically.
       </div>
+
+      <input
+        value={identityQuestion}
+        onChange={(e) => setIdentityQuestion(e.target.value)}
+        placeholder="Identity question text, e.g. 你觉得自己更像哪一种？"
+        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      />
       <input
         value={identityOptions}
         onChange={(e) => setIdentityOptions(e.target.value)}
         placeholder="Identity options, e.g. 真实分享者, 专业测评者, 生活记录者"
         className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
       />
+
+      <input
+        value={toneQuestion}
+        onChange={(e) => setToneQuestion(e.target.value)}
+        placeholder="Tone question text, e.g. 选择语气"
+        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      />
       <input
         value={toneOptions}
         onChange={(e) => setToneOptions(e.target.value)}
         placeholder="Tone options, e.g. 真诚, 活泼, 专业"
+        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      />
+
+      <input
+        value={styleQuestion}
+        onChange={(e) => setStyleQuestion(e.target.value)}
+        placeholder="Style question text, e.g. 选择风格"
         className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
       />
       <input

@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
     identityOptions,
     toneOptions,
     styleOptions,
+    identityQuestion,
+    toneQuestion,
+    styleQuestion,
   }: {
     slug: string;
     name: string;
@@ -26,6 +29,9 @@ export async function POST(req: NextRequest) {
     identityOptions?: string[];
     toneOptions?: string[];
     styleOptions?: string[];
+    identityQuestion?: string;
+    toneQuestion?: string;
+    styleQuestion?: string;
   } = await req.json();
 
   if (!slug || !name || !brandLink) {
@@ -42,6 +48,9 @@ export async function POST(req: NextRequest) {
       identityOptions: identityOptions ? JSON.stringify(identityOptions) : null,
       toneOptions: toneOptions ? JSON.stringify(toneOptions) : null,
       styleOptions: styleOptions ? JSON.stringify(styleOptions) : null,
+      identityQuestion: identityQuestion || null,
+      toneQuestion: toneQuestion || null,
+      styleQuestion: styleQuestion || null,
     },
   });
 

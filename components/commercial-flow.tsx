@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { PlatformToggle } from "./platform-toggle";
-import { ChoiceGroup } from "./choice-group";
+import { ChoiceGroupWithOther } from "./choice-group-with-other";
 
 type Platform = "XHS" | "INSTAGRAM";
 
@@ -12,11 +12,17 @@ export function CommercialFlow({
   identityOptions: customIdentityOptions,
   toneOptions: customToneOptions,
   styleOptions: customStyleOptions,
+  identityQuestion,
+  toneQuestion,
+  styleQuestion,
 }: {
   campaignSlug: string;
   identityOptions?: string[];
   toneOptions?: string[];
   styleOptions?: string[];
+  identityQuestion?: string;
+  toneQuestion?: string;
+  styleQuestion?: string;
 }) {
   const t = useTranslations("individual");
   const tc = useTranslations("commercial");
@@ -24,6 +30,11 @@ export function CommercialFlow({
   const identityOptions = customIdentityOptions ?? (tc.raw("identityOptions") as string[]);
   const toneOptions = customToneOptions ?? (tc.raw("toneOptions") as string[]);
   const styleOptions = customStyleOptions ?? (tc.raw("styleOptions") as string[]);
+  // "Other" is only auto-added when the campaign has its own custom choices.
+  const otherLabel = tc("otherOption");
+  const identityOtherLabel = customIdentityOptions ? otherLabel : undefined;
+  const toneOtherLabel = customToneOptions ? otherLabel : undefined;
+  const styleOtherLabel = customStyleOptions ? otherLabel : undefined;
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPath, setMediaPath] = useState<string | null>(null);
@@ -233,10 +244,14 @@ export function CommercialFlow({
         </div>
 
         <div>
-          <label className="text-sm font-medium">{tc("identity")}</label>
+          <label className="text-sm font-medium">
+            {identityQuestion || tc("identity")}
+          </label>
           <div className="mt-2">
-            <ChoiceGroup
+            <ChoiceGroupWithOther
               options={identityOptions}
+              otherLabel={identityOtherLabel}
+              otherPlaceholder={tc("otherPlaceholder")}
               value={identity}
               onChange={setIdentity}
             />
@@ -244,17 +259,29 @@ export function CommercialFlow({
         </div>
 
         <div>
-          <label className="text-sm font-medium">{tc("tone")}</label>
+          <label className="text-sm font-medium">
+            {toneQuestion || tc("tone")}
+          </label>
           <div className="mt-2">
-            <ChoiceGroup options={toneOptions} value={tone} onChange={setTone} />
+            <ChoiceGroupWithOther
+              options={toneOptions}
+              otherLabel={toneOtherLabel}
+              otherPlaceholder={tc("otherPlaceholder")}
+              value={tone}
+              onChange={setTone}
+            />
           </div>
         </div>
 
         <div>
-          <label className="text-sm font-medium">{tc("style")}</label>
+          <label className="text-sm font-medium">
+            {styleQuestion || tc("style")}
+          </label>
           <div className="mt-2">
-            <ChoiceGroup
+            <ChoiceGroupWithOther
               options={styleOptions}
+              otherLabel={styleOtherLabel}
+              otherPlaceholder={tc("otherPlaceholder")}
               value={style}
               onChange={setStyle}
             />

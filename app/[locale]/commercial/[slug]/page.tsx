@@ -48,6 +48,9 @@ export default async function CommercialCampaignPage({
           identityOptions={parseOptions(campaign.identityOptions)}
           toneOptions={parseOptions(campaign.toneOptions)}
           styleOptions={parseOptions(campaign.styleOptions)}
+          identityQuestion={campaign.identityQuestion ?? undefined}
+          toneQuestion={campaign.toneQuestion ?? undefined}
+          styleQuestion={campaign.styleQuestion ?? undefined}
         />
       </div>
     </div>

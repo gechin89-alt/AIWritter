@@ -73,6 +73,8 @@
       "Listicle",
       "Enthusiastic recommendation"
     ],
+    "otherOption": "Other",
+    "otherPlaceholder": "Please specify...",
     "submitLink": "Submit your post link",
     "linkPlaceholder": "Paste your Xiaohongshu post link here",
     "submit": "Submit for the lucky draw",

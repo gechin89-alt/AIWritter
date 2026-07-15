@@ -58,6 +58,8 @@
     "identityOptions": ["真实分享者", "专业测评者", "生活记录者", "搞笑达人"],
     "toneOptions": ["真诚", "活泼", "专业", "感性"],
     "styleOptions": ["简约", "故事叙述", "清单式", "种草安利"],
+    "otherOption": "其他",
+    "otherPlaceholder": "请输入...",
     "submitLink": "提交你的帖子链接",
     "linkPlaceholder": "请粘贴你的小红书帖子链接",
     "submit": "提交参与抽奖",
