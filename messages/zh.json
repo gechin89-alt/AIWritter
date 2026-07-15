@@ -62,6 +62,8 @@
     "linkPlaceholder": "请粘贴你的小红书帖子链接",
     "submit": "提交参与抽奖",
     "submitted": "谢谢！你的参与信息已记录。",
+    "entryCount": "{count, plural, other {你在本活动已获得 # 次抽奖机会。}}",
+    "postAnother": "再发一篇，获得更多抽奖机会",
     "terms": "条款与条件"
   },
   "admin": {
@@ -69,6 +71,12 @@
     "individualPosts": "个人帖子记录",
     "submissions": "活动提交记录",
     "campaigns": "活动管理",
-    "newCampaign": "新建活动"
+    "newCampaign": "新建活动",
+    "totalSubmissions": "总提交数",
+    "uniqueParticipants": "参与人数",
+    "qrCode": "二维码",
+    "showQrCode": "显示二维码",
+    "hideQrCode": "隐藏二维码",
+    "scanToJoin": "扫码参与活动"
   }
 }

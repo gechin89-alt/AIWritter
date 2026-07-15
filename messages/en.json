@@ -77,6 +77,8 @@
     "linkPlaceholder": "Paste your Xiaohongshu post link here",
     "submit": "Submit for the lucky draw",
     "submitted": "Thanks! Your entry has been recorded.",
+    "entryCount": "You now have {count, plural, one {# lucky draw entry} other {# lucky draw entries}} for this campaign.",
+    "postAnother": "Post another for more entries",
     "terms": "Terms & Conditions"
   },
   "admin": {
@@ -84,6 +86,12 @@
     "individualPosts": "Individual Posts",
     "submissions": "Campaign Submissions",
     "campaigns": "Campaigns",
-    "newCampaign": "New campaign"
+    "newCampaign": "New campaign",
+    "totalSubmissions": "Total submissions",
+    "uniqueParticipants": "Unique participants",
+    "qrCode": "QR code",
+    "showQrCode": "Show QR code",
+    "hideQrCode": "Hide QR code",
+    "scanToJoin": "Scan to join this campaign"
   }
 }

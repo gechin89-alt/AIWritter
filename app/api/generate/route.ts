@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     style,
     freeText,
     commercial,
+    campaignSlug,
     mediaPath,
     history,
   }: {
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     style?: string;
     freeText?: string;
     commercial?: boolean;
+    campaignSlug?: string;
     mediaPath?: string;
     history?: ChatTurn[];
   } = body;
@@ -41,6 +43,16 @@ export async function POST(req: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+  }
+
+  // Look the brand name up server-side from the campaign slug — never trust
+  // a client-supplied brand name directly, or any post could inject arbitrary text.
+  let brandName: string | undefined;
+  if (commercial && campaignSlug) {
+    const campaign = await prisma.campaign.findUnique({
+      where: { slug: campaignSlug },
+    });
+    brandName = campaign?.name;
   }
 
   let imageBase64: string | undefined;
@@ -68,6 +80,7 @@ export async function POST(req: NextRequest) {
     style,
     freeText,
     commercial,
+    brandName,
     imageBase64,
     imageMediaType,
     history,

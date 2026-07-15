@@ -1,7 +1,10 @@
 import Image from "next/image";
+import { headers } from "next/headers";
+import QRCode from "qrcode";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { NewCampaignForm } from "@/components/new-campaign-form";
+import { CampaignQr } from "@/components/campaign-qr";
 
 export default async function AdminPage({
   params,
@@ -12,19 +15,54 @@ export default async function AdminPage({
   setRequestLocale(locale);
   const t = await getTranslations("admin");
 
-  const [campaigns, individualPosts, submissions] = await Promise.all([
-    prisma.campaign.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.individualPost.findMany({
-      include: { user: true },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-    prisma.commercialSubmission.findMany({
-      include: { campaign: true },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-  ]);
+  const [campaigns, individualPosts, submissions, allSubmissionKeys] =
+    await Promise.all([
+      prisma.campaign.findMany({ orderBy: { createdAt: "desc" } }),
+      prisma.individualPost.findMany({
+        include: { user: true },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      prisma.commercialSubmission.findMany({
+        include: { campaign: true },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      prisma.commercialSubmission.findMany({
+        select: { campaignId: true, phone: true },
+      }),
+    ]);
+
+  const statsByCampaign = new Map<
+    string,
+    { total: number; uniquePhones: Set<string> }
+  >();
+  for (const s of allSubmissionKeys) {
+    const entry = statsByCampaign.get(s.campaignId) ?? {
+      total: 0,
+      uniquePhones: new Set<string>(),
+    };
+    entry.total += 1;
+    entry.uniquePhones.add(s.phone);
+    statsByCampaign.set(s.campaignId, entry);
+  }
+
+  const hdrs = await headers();
+  const host = hdrs.get("host") ?? "localhost:3000";
+  const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1")
+    ? "http"
+    : "https";
+  const baseUrl = `${protocol}://${host}`;
+
+  const campaignQrCodes = new Map(
+    await Promise.all(
+      campaigns.map(async (c) => {
+        const url = `${baseUrl}/${locale}/commercial/${c.slug}`;
+        const dataUrl = await QRCode.toDataURL(url, { width: 200, margin: 1 });
+        return [c.id, { url, dataUrl }] as const;
+      }),
+    ),
+  );
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
@@ -36,26 +74,42 @@ export default async function AdminPage({
           <NewCampaignForm label={t("newCampaign")} />
         </div>
         <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full min-w-[500px] text-left text-sm">
+          <table className="w-full min-w-[700px] text-left text-sm">
             <thead className="bg-zinc-100 dark:bg-zinc-900">
               <tr>
                 <th className="px-3 py-2">Slug</th>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Active</th>
-                <th className="px-3 py-2">Created</th>
+                <th className="px-3 py-2">{t("totalSubmissions")}</th>
+                <th className="px-3 py-2">{t("uniqueParticipants")}</th>
+                <th className="px-3 py-2">{t("qrCode")}</th>
               </tr>
             </thead>
             <tbody>
-              {campaigns.map((c) => (
-                <tr key={c.id} className="border-t border-zinc-200 dark:border-zinc-800">
-                  <td className="px-3 py-2">{c.slug}</td>
-                  <td className="px-3 py-2">{c.name}</td>
-                  <td className="px-3 py-2">{c.active ? "Yes" : "No"}</td>
-                  <td className="px-3 py-2">
-                    {c.createdAt.toLocaleDateString()}
-                  </td>
-                </tr>
-              ))}
+              {campaigns.map((c) => {
+                const stats = statsByCampaign.get(c.id);
+                const qr = campaignQrCodes.get(c.id);
+                return (
+                  <tr key={c.id} className="border-t border-zinc-200 dark:border-zinc-800">
+                    <td className="px-3 py-2">{c.slug}</td>
+                    <td className="px-3 py-2">{c.name}</td>
+                    <td className="px-3 py-2">{c.active ? "Yes" : "No"}</td>
+                    <td className="px-3 py-2">{stats?.total ?? 0}</td>
+                    <td className="px-3 py-2">{stats?.uniquePhones.size ?? 0}</td>
+                    <td className="px-3 py-2">
+                      {qr && (
+                        <CampaignQr
+                          dataUrl={qr.dataUrl}
+                          url={qr.url}
+                          showLabel={t("showQrCode")}
+                          hideLabel={t("hideQrCode")}
+                          scanLabel={t("scanToJoin")}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

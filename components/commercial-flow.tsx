@@ -35,6 +35,7 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
   const [xhsLink, setXhsLink] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [entryCount, setEntryCount] = useState<number | null>(null);
 
   async function uploadMediaIfNeeded(): Promise<string | undefined> {
     if (!mediaFile) return undefined;
@@ -71,6 +72,7 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
           style,
           freeText,
           commercial: true,
+          campaignSlug,
           mediaPath: resolvedMediaPath,
           history: [],
         }),
@@ -110,6 +112,8 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
         }),
       });
       if (!res.ok) throw new Error("submit failed");
+      const data = await res.json();
+      setEntryCount(data.entryCount ?? null);
       setSubmitted(true);
     } catch {
       setError(tc("submit") + " — error");
@@ -118,11 +122,37 @@ export function CommercialFlow({ campaignSlug }: { campaignSlug: string }) {
     }
   }
 
+  function handlePostAnother() {
+    setMediaFile(null);
+    setMediaPath(null);
+    setIdentity("");
+    setTone("");
+    setStyle("");
+    setFreeText("");
+    setXhsLink("");
+    setResult(null);
+    setSubmitted(false);
+    setError(null);
+  }
+
   if (submitted) {
     return (
-      <p className="rounded-lg bg-brand/10 p-4 text-sm text-brand">
-        {tc("submitted")}
-      </p>
+      <div className="w-full max-w-lg">
+        <p className="rounded-lg bg-brand/10 p-4 text-sm text-brand">
+          {tc("submitted")}
+        </p>
+        {entryCount !== null && (
+          <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            {tc("entryCount", { count: entryCount })}
+          </p>
+        )}
+        <button
+          onClick={handlePostAnother}
+          className="mt-4 rounded-full border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-brand/10"
+        >
+          {tc("postAnother")}
+        </button>
+      </div>
     );
   }
 

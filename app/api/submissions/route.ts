@@ -28,5 +28,9 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ id: submission.id });
+  const entryCount = await prisma.commercialSubmission.count({
+    where: { campaignId: campaign.id, phone },
+  });
+
+  return NextResponse.json({ id: submission.id, entryCount });
 }
