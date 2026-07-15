@@ -34,9 +34,41 @@ Rules:
   {"type":"question","content":"..."} when you need to ask something, or
   {"type":"result","content":"..."} when you are producing the final post text.`;
 
+function buildTemplateContent(input: GenerateInput): string {
+  const isXhs = input.platform !== "INSTAGRAM";
+  const opener = input.freeText?.trim() || "分享一下今天的小体验～";
+  const lines = [opener];
+
+  if (input.identity || input.tone || input.style) {
+    lines.push(
+      [
+        input.identity && `身份：${input.identity}`,
+        input.tone && `语气：${input.tone}`,
+        input.style && `风格：${input.style}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    );
+  }
+
+  const hashtags = isXhs ? ["#生活分享", "#种草"] : ["#lifestyle", "#sharing"];
+  if (input.commercial) hashtags.push(isXhs ? "#合作" : "#ad");
+
+  lines.push(hashtags.join(" "));
+  lines.push(
+    "\n⚠️ 这是演示文案（未配置 ANTHROPIC_API_KEY，非真实 AI 生成）。设置好密钥后会自动切换为真实生成。",
+  );
+
+  return lines.join("\n\n");
+}
+
 export async function generateContent(
   input: GenerateInput,
 ): Promise<GenerateResult> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return { type: "result", content: buildTemplateContent(input) };
+  }
+
   const contextLines = [
     `Platform: ${input.platform}`,
     input.identity ? `Identity/persona: ${input.identity}` : null,
