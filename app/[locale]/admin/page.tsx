@@ -25,7 +25,6 @@ export default async function AdminPage({
       prisma.campaign.findMany({
         orderBy: { createdAt: "desc" },
         include: {
-          _count: { select: { prizes: true } },
           prizes: { orderBy: { rank: "asc" } },
         },
       }),
@@ -81,8 +80,11 @@ export default async function AdminPage({
       slug: c.slug,
       name: c.name,
       prizeInfo: c.prizeInfo,
-      prizeCountLabel:
-        c._count.prizes > 0 ? td("prizeCount", { count: c._count.prizes }) : null,
+      prizes: c.prizes.map((p) => ({
+        id: p.id,
+        name: p.name,
+        imagePath: p.imagePath,
+      })),
     }));
 
   const campaignsTab = (

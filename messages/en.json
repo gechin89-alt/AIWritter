@@ -30,8 +30,7 @@
     "title": "Lucky Draw Directory",
     "subtitle": "Browse active campaigns and join a lucky draw.",
     "join": "Join this campaign",
-    "empty": "No active campaigns right now — check back soon.",
-    "prizeCount": "{count, plural, one {🏆 # prize} other {🏆 # prizes}}"
+    "empty": "No active campaigns right now — check back soon."
   },
   "auth": {
     "loginTitle": "Log in",

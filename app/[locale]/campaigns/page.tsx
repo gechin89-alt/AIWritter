@@ -18,19 +18,12 @@ export default async function CampaignsDirectoryPage({
       slug: true,
       name: true,
       prizeInfo: true,
-      _count: { select: { prizes: true } },
+      prizes: {
+        orderBy: { rank: "asc" },
+        select: { id: true, name: true, imagePath: true },
+      },
     },
   });
-
-  const campaignsWithLabels = campaigns.map((c) => ({
-    slug: c.slug,
-    name: c.name,
-    prizeInfo: c.prizeInfo,
-    prizeCountLabel:
-      c._count.prizes > 0
-        ? t("prizeCount", { count: c._count.prizes })
-        : null,
-  }));
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6">
@@ -42,7 +35,7 @@ export default async function CampaignsDirectoryPage({
       </p>
       <div className="mt-8">
         <CampaignDirectoryList
-          campaigns={campaignsWithLabels}
+          campaigns={campaigns}
           joinLabel={t("join")}
           emptyLabel={t("empty")}
         />

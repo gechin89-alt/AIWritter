@@ -30,8 +30,7 @@
     "title": "抽奖目录",
     "subtitle": "浏览进行中的活动，参与抽奖。",
     "join": "参与这个活动",
-    "empty": "目前没有进行中的活动，请稍后再来看看。",
-    "prizeCount": "{count, plural, other {🏆 共 # 项奖品}}"
+    "empty": "目前没有进行中的活动，请稍后再来看看。"
   },
   "auth": {
     "loginTitle": "登录",
