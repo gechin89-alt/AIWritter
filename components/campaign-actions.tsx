@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { IconActionButton } from "./icon-action-button";
 
 export function CampaignActions({
   id,
@@ -64,24 +65,22 @@ export function CampaignActions({
   }
 
   return (
-    <div className="flex flex-col items-start gap-1">
-      <div className="flex gap-2">
-        <button
-          onClick={toggleActive}
-          disabled={busy}
-          className="text-sm font-medium text-zinc-600 underline hover:text-brand disabled:opacity-50 dark:text-zinc-400"
-        >
-          {active ? labels.deactivate : labels.activate}
-        </button>
-        <button
-          onClick={handleDelete}
-          disabled={busy}
-          className="text-sm font-medium text-red-600 underline hover:text-red-700 disabled:opacity-50"
-        >
-          {labels.deleteLabel}
-        </button>
-      </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
+    <>
+      <IconActionButton
+        icon={active ? "⏸" : "▶"}
+        label={active ? labels.deactivate : labels.activate}
+        onClick={toggleActive}
+        disabled={busy}
+        variant="neutral"
+      />
+      <IconActionButton
+        icon="🗑"
+        label={labels.deleteLabel}
+        onClick={handleDelete}
+        disabled={busy}
+        variant="danger"
+      />
+      {error && <p className="basis-full text-xs text-red-600">{error}</p>}
+    </>
   );
 }

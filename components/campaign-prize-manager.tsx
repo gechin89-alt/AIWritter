@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { PrizeListEditor, type PrizeRow } from "./prize-list-editor";
+import { IconActionButton } from "./icon-action-button";
+import { Modal } from "./modal";
 
 export function CampaignPrizeManager({
   campaignId,
@@ -70,39 +72,36 @@ export function CampaignPrizeManager({
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-sm font-medium text-brand underline"
-      >
-        {labels.manage}
-      </button>
-    );
-  }
-
   return (
-    <div className="mt-2 w-72 rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-      <PrizeListEditor prizes={prizes} onChange={setPrizes} />
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="rounded-full bg-brand px-4 py-1.5 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-        >
-          {labels.save}
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded-full border border-zinc-300 px-4 py-1.5 text-xs font-medium dark:border-zinc-700"
-        >
-          {labels.cancel}
-        </button>
-      </div>
-    </div>
+    <>
+      <IconActionButton
+        icon="🎁"
+        label={labels.manage}
+        onClick={() => setOpen(true)}
+        active={open}
+        variant="brand"
+      />
+      <Modal open={open} onClose={() => setOpen(false)} title={labels.manage}>
+        <PrizeListEditor prizes={prizes} onChange={setPrizes} />
+        {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          >
+            {labels.save}
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
+          >
+            {labels.cancel}
+          </button>
+        </div>
+      </Modal>
+    </>
   );
 }
