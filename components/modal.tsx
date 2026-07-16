@@ -7,11 +7,13 @@ export function Modal({
   onClose,
   title,
   children,
+  wide = false,
 }: {
   open: boolean;
   onClose: () => void;
   title?: string;
   children: ReactNode;
+  wide?: boolean;
 }) {
   if (!open) return null;
 
@@ -22,7 +24,11 @@ export function Modal({
         onClick={onClose}
         aria-hidden
       />
-      <div className="animate-fade-in-up relative z-10 max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl dark:bg-zinc-950">
+      <div
+        className={`animate-fade-in-up relative z-10 max-h-[85vh] w-full overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl dark:bg-zinc-950 ${
+          wide ? "max-w-3xl" : "max-w-md"
+        }`}
+      >
         <div className="flex items-center justify-between">
           {title && (
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">

@@ -9,7 +9,7 @@ import { CampaignActions } from "@/components/campaign-actions";
 import { CampaignDirectoryList } from "@/components/campaign-directory-list";
 import { AdminTabs } from "@/components/admin-tabs";
 import { CampaignPrizeManager } from "@/components/campaign-prize-manager";
-import { IconActionButton } from "@/components/icon-action-button";
+import { CampaignViewButton } from "@/components/campaign-view-button";
 
 export default async function AdminPage({
   params,
@@ -136,12 +136,7 @@ export default async function AdminPage({
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {qr && (
-                        <IconActionButton
-                          icon="👁"
-                          label={t("view")}
-                          href={qr.url}
-                          variant="neutral"
-                        />
+                        <CampaignViewButton url={qr.url} label={t("view")} />
                       )}
                       <CampaignActions
                         id={c.id}
