@@ -81,6 +81,7 @@ export default async function AdminPage({
                 <th className="px-3 py-2">Slug</th>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Active</th>
+                <th className="px-3 py-2">Questions</th>
                 <th className="px-3 py-2">{t("totalSubmissions")}</th>
                 <th className="px-3 py-2">{t("uniqueParticipants")}</th>
                 <th className="px-3 py-2">{t("qrCode")}</th>
@@ -96,6 +97,9 @@ export default async function AdminPage({
                     <td className="px-3 py-2">{c.slug}</td>
                     <td className="px-3 py-2">{c.name}</td>
                     <td className="px-3 py-2">{c.active ? "Yes" : "No"}</td>
+                    <td className="px-3 py-2">
+                      {c.questionMode === "AI_ADAPTIVE" ? "AI" : "Fixed"}
+                    </td>
                     <td className="px-3 py-2">{stats?.total ?? 0}</td>
                     <td className="px-3 py-2">{stats?.uniquePhones.size ?? 0}</td>
                     <td className="px-3 py-2">

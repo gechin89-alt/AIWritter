@@ -23,6 +23,11 @@ enum SubmissionStatus {
   VERIFIED
 }
 
+enum QuestionMode {
+  FIXED
+  AI_ADAPTIVE
+}
+
 model User {
   id             String           @id @default(cuid())
   name           String
@@ -67,6 +72,7 @@ model Campaign {
   identityIncludeOther Boolean @default(false)
   toneIncludeOther     Boolean @default(false)
   styleIncludeOther    Boolean @default(false)
+  questionMode    QuestionMode           @default(FIXED)
   createdAt       DateTime               @default(now())
   submissions     CommercialSubmission[]
 }

@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { generateContent, type ChatTurn } from "@/lib/anthropic";
-
-const MEDIA_TYPES: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-};
+import { readImageAsBase64 } from "@/lib/media";
+import { generateContent, type ChatTurn, type QaPair } from "@/lib/anthropic";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -23,6 +14,8 @@ export async function POST(req: NextRequest) {
     freeText,
     commercial,
     campaignSlug,
+    category,
+    qaPairs,
     mediaPath,
     history,
   }: {
@@ -33,6 +26,8 @@ export async function POST(req: NextRequest) {
     freeText?: string;
     commercial?: boolean;
     campaignSlug?: string;
+    category?: string;
+    qaPairs?: QaPair[];
     mediaPath?: string;
     history?: ChatTurn[];
   } = body;
@@ -55,23 +50,7 @@ export async function POST(req: NextRequest) {
     brandName = campaign?.name;
   }
 
-  let imageBase64: string | undefined;
-  let imageMediaType: string | undefined;
-
-  if (mediaPath) {
-    const ext = path.extname(mediaPath).toLowerCase();
-    const mimeType = MEDIA_TYPES[ext];
-    if (mimeType) {
-      try {
-        const filePath = path.join(process.cwd(), "public", mediaPath);
-        const buffer = await readFile(filePath);
-        imageBase64 = buffer.toString("base64");
-        imageMediaType = mimeType;
-      } catch {
-        // media not readable (e.g. video) — proceed without it
-      }
-    }
-  }
+  const image = mediaPath ? await readImageAsBase64(mediaPath) : undefined;
 
   const result = await generateContent({
     platform,
@@ -81,8 +60,10 @@ export async function POST(req: NextRequest) {
     freeText,
     commercial,
     brandName,
-    imageBase64,
-    imageMediaType,
+    category,
+    qaPairs,
+    imageBase64: image?.imageBase64,
+    imageMediaType: image?.imageMediaType,
     history,
   });
 

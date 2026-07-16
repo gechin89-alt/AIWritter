@@ -6,9 +6,11 @@ import { PlatformToggle } from "./platform-toggle";
 import { ChoiceGroupWithOther } from "./choice-group-with-other";
 
 type Platform = "XHS" | "INSTAGRAM";
+type FollowUpQuestion = { question: string; options: string[] };
 
 export function CommercialFlow({
   campaignSlug,
+  questionMode = "FIXED",
   identityOptions: customIdentityOptions,
   toneOptions: customToneOptions,
   styleOptions: customStyleOptions,
@@ -20,6 +22,7 @@ export function CommercialFlow({
   styleIncludeOther,
 }: {
   campaignSlug: string;
+  questionMode?: "FIXED" | "AI_ADAPTIVE";
   identityOptions?: string[];
   toneOptions?: string[];
   styleOptions?: string[];
@@ -36,6 +39,7 @@ export function CommercialFlow({
   const identityOptions = customIdentityOptions ?? (tc.raw("identityOptions") as string[]);
   const toneOptions = customToneOptions ?? (tc.raw("toneOptions") as string[]);
   const styleOptions = customStyleOptions ?? (tc.raw("styleOptions") as string[]);
+  const categoryOptions = tc.raw("categoryOptions") as string[];
   const otherLabel = tc("otherOption");
   const identityOtherLabel = identityIncludeOther ? otherLabel : undefined;
   const toneOtherLabel = toneIncludeOther ? otherLabel : undefined;
@@ -50,6 +54,13 @@ export function CommercialFlow({
   const [style, setStyle] = useState("");
   const [freeText, setFreeText] = useState("");
   const [platform, setPlatform] = useState<Platform>("XHS");
+
+  // AI-adaptive mode state
+  const [category, setCategory] = useState("");
+  const [questionsFetched, setQuestionsFetched] = useState(false);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [followUpQuestions, setFollowUpQuestions] = useState<FollowUpQuestion[]>([]);
+  const [followUpAnswers, setFollowUpAnswers] = useState<string[]>([]);
 
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,19 +94,51 @@ export function CommercialFlow({
     }
   }
 
+  async function handleFetchQuestions() {
+    setLoadingQuestions(true);
+    setError(null);
+    try {
+      const resolvedMediaPath = await uploadMediaIfNeeded();
+      const res = await fetch("/api/generate-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, mediaPath: resolvedMediaPath }),
+      });
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      const questions: FollowUpQuestion[] = data.questions ?? [];
+      setFollowUpQuestions(questions);
+      setFollowUpAnswers(new Array(questions.length).fill(""));
+      setQuestionsFetched(true);
+    } catch {
+      setError(tc("continueLabel") + " — error");
+    } finally {
+      setLoadingQuestions(false);
+    }
+  }
+
   async function handleGenerate() {
     setLoading(true);
     setError(null);
     try {
       const resolvedMediaPath = await uploadMediaIfNeeded();
+      const isAdaptive = questionMode === "AI_ADAPTIVE";
+      const qaPairs = isAdaptive
+        ? followUpQuestions.map((q, i) => ({
+            question: q.question,
+            answer: followUpAnswers[i] ?? "",
+          }))
+        : undefined;
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           platform,
-          identity,
-          tone,
-          style,
+          identity: isAdaptive ? undefined : identity,
+          tone: isAdaptive ? undefined : tone,
+          style: isAdaptive ? undefined : style,
+          category: isAdaptive ? category : undefined,
+          qaPairs,
           freeText,
           commercial: true,
           campaignSlug,
@@ -156,6 +199,10 @@ export function CommercialFlow({
     setStyle("");
     setFreeText("");
     setXhsLink("");
+    setCategory("");
+    setQuestionsFetched(false);
+    setFollowUpQuestions([]);
+    setFollowUpAnswers([]);
     setResult(null);
     setSubmitted(false);
     setError(null);
@@ -231,67 +278,128 @@ export function CommercialFlow({
     );
   }
 
+  const mediaField = (
+    <div>
+      <label className="text-sm font-medium">{tc("stepMedia")}</label>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          setMediaFile(e.target.files?.[0] ?? null);
+          setMediaPath(null);
+        }}
+        className="mt-1 block w-full text-sm"
+      />
+    </div>
+  );
+
+  if (questionMode === "AI_ADAPTIVE" && !questionsFetched) {
+    return (
+      <div className="w-full max-w-lg">
+        <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
+        <div className="mt-6 flex flex-col gap-5">
+          {mediaField}
+
+          <div>
+            <label className="text-sm font-medium">{tc("category")}</label>
+            <div className="mt-2">
+              <ChoiceGroupWithOther
+                options={categoryOptions}
+                otherLabel={otherLabel}
+                otherPlaceholder={tc("otherPlaceholder")}
+                value={category}
+                onChange={setCategory}
+              />
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <button
+            onClick={handleFetchQuestions}
+            disabled={loadingQuestions || uploading || !category}
+            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          >
+            {loadingQuestions ? tc("loadingQuestions") : tc("continueLabel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-lg">
       <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
       <div className="mt-6 flex flex-col gap-5">
-        <div>
-          <label className="text-sm font-medium">{tc("stepMedia")}</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              setMediaFile(e.target.files?.[0] ?? null);
-              setMediaPath(null);
-            }}
-            className="mt-1 block w-full text-sm"
-          />
-        </div>
+        {questionMode === "FIXED" && mediaField}
 
-        <div>
-          <label className="text-sm font-medium">
-            {identityQuestion || tc("identity")}
-          </label>
-          <div className="mt-2">
-            <ChoiceGroupWithOther
-              options={identityOptions}
-              otherLabel={identityOtherLabel}
-              otherPlaceholder={tc("otherPlaceholder")}
-              value={identity}
-              onChange={setIdentity}
-            />
-          </div>
-        </div>
+        {questionMode === "FIXED" ? (
+          <>
+            <div>
+              <label className="text-sm font-medium">
+                {identityQuestion || tc("identity")}
+              </label>
+              <div className="mt-2">
+                <ChoiceGroupWithOther
+                  options={identityOptions}
+                  otherLabel={identityOtherLabel}
+                  otherPlaceholder={tc("otherPlaceholder")}
+                  value={identity}
+                  onChange={setIdentity}
+                />
+              </div>
+            </div>
 
-        <div>
-          <label className="text-sm font-medium">
-            {toneQuestion || tc("tone")}
-          </label>
-          <div className="mt-2">
-            <ChoiceGroupWithOther
-              options={toneOptions}
-              otherLabel={toneOtherLabel}
-              otherPlaceholder={tc("otherPlaceholder")}
-              value={tone}
-              onChange={setTone}
-            />
-          </div>
-        </div>
+            <div>
+              <label className="text-sm font-medium">
+                {toneQuestion || tc("tone")}
+              </label>
+              <div className="mt-2">
+                <ChoiceGroupWithOther
+                  options={toneOptions}
+                  otherLabel={toneOtherLabel}
+                  otherPlaceholder={tc("otherPlaceholder")}
+                  value={tone}
+                  onChange={setTone}
+                />
+              </div>
+            </div>
 
-        <div>
-          <label className="text-sm font-medium">
-            {styleQuestion || tc("style")}
-          </label>
-          <div className="mt-2">
-            <ChoiceGroupWithOther
-              options={styleOptions}
-              otherLabel={styleOtherLabel}
-              otherPlaceholder={tc("otherPlaceholder")}
-              value={style}
-              onChange={setStyle}
-            />
-          </div>
-        </div>
+            <div>
+              <label className="text-sm font-medium">
+                {styleQuestion || tc("style")}
+              </label>
+              <div className="mt-2">
+                <ChoiceGroupWithOther
+                  options={styleOptions}
+                  otherLabel={styleOtherLabel}
+                  otherPlaceholder={tc("otherPlaceholder")}
+                  value={style}
+                  onChange={setStyle}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          followUpQuestions.map((q, i) => (
+            <div key={i}>
+              <label className="text-sm font-medium">{q.question}</label>
+              <div className="mt-2">
+                <ChoiceGroupWithOther
+                  options={q.options}
+                  otherLabel={otherLabel}
+                  otherPlaceholder={tc("otherPlaceholder")}
+                  value={followUpAnswers[i] ?? ""}
+                  onChange={(value) => {
+                    const next = [...followUpAnswers];
+                    next[i] = value;
+                    setFollowUpAnswers(next);
+                  }}
+                />
+              </div>
+            </div>
+          ))
+        )}
 
         <div>
           <label className="text-sm font-medium">{tc("freeText")}</label>

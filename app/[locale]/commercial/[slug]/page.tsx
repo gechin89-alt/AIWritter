@@ -45,6 +45,7 @@ export default async function CommercialCampaignPage({
       <div className="mt-10">
         <CommercialFlow
           campaignSlug={campaign.slug}
+          questionMode={campaign.questionMode}
           identityOptions={parseOptions(campaign.identityOptions)}
           toneOptions={parseOptions(campaign.toneOptions)}
           styleOptions={parseOptions(campaign.styleOptions)}

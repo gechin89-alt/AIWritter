@@ -12,6 +12,7 @@ export function NewCampaignForm({ label }: { label: string }) {
   const [brandLink, setBrandLink] = useState("");
   const [prizeInfo, setPrizeInfo] = useState("");
   const [termsText, setTermsText] = useState("");
+  const [questionMode, setQuestionMode] = useState<"FIXED" | "AI_ADAPTIVE">("FIXED");
 
   const [identityQuestion, setIdentityQuestion] = useState("");
   const [identityOptions, setIdentityOptions] = useState<string[]>([""]);
@@ -39,6 +40,7 @@ export function NewCampaignForm({ label }: { label: string }) {
     setBrandLink("");
     setPrizeInfo("");
     setTermsText("");
+    setQuestionMode("FIXED");
     setIdentityQuestion("");
     setIdentityOptions([""]);
     setIdentityIncludeOther(false);
@@ -64,6 +66,7 @@ export function NewCampaignForm({ label }: { label: string }) {
           brandLink,
           prizeInfo,
           termsText,
+          questionMode,
           identityQuestion: identityQuestion || undefined,
           identityOptions: cleanOptions(identityOptions),
           identityIncludeOther,
@@ -139,40 +142,66 @@ export function NewCampaignForm({ label }: { label: string }) {
       />
 
       <div className="mt-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
-        Optional: customize each questionnaire question. Leave a
-        question&apos;s text and answers blank to use the default for that
-        question.
+        Question source
+      </div>
+      <div className="flex gap-4 text-sm">
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            checked={questionMode === "FIXED"}
+            onChange={() => setQuestionMode("FIXED")}
+          />
+          Fixed questions (below)
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            checked={questionMode === "AI_ADAPTIVE"}
+            onChange={() => setQuestionMode("AI_ADAPTIVE")}
+          />
+          AI-adaptive (generated from the photo)
+        </label>
       </div>
 
-      <OptionListEditor
-        questionPlaceholder="Identity question text, e.g. 你觉得自己更像哪一种？"
-        question={identityQuestion}
-        onQuestionChange={setIdentityQuestion}
-        options={identityOptions}
-        onOptionsChange={setIdentityOptions}
-        includeOther={identityIncludeOther}
-        onIncludeOtherChange={setIdentityIncludeOther}
-      />
+      {questionMode === "FIXED" && (
+        <>
+          <div className="border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
+            Optional: customize each questionnaire question. Leave a
+            question&apos;s text and answers blank to use the default for
+            that question.
+          </div>
 
-      <OptionListEditor
-        questionPlaceholder="Tone question text, e.g. 选择语气"
-        question={toneQuestion}
-        onQuestionChange={setToneQuestion}
-        options={toneOptions}
-        onOptionsChange={setToneOptions}
-        includeOther={toneIncludeOther}
-        onIncludeOtherChange={setToneIncludeOther}
-      />
+          <OptionListEditor
+            questionPlaceholder="Identity question text, e.g. 你觉得自己更像哪一种？"
+            question={identityQuestion}
+            onQuestionChange={setIdentityQuestion}
+            options={identityOptions}
+            onOptionsChange={setIdentityOptions}
+            includeOther={identityIncludeOther}
+            onIncludeOtherChange={setIdentityIncludeOther}
+          />
 
-      <OptionListEditor
-        questionPlaceholder="Style question text, e.g. 选择风格"
-        question={styleQuestion}
-        onQuestionChange={setStyleQuestion}
-        options={styleOptions}
-        onOptionsChange={setStyleOptions}
-        includeOther={styleIncludeOther}
-        onIncludeOtherChange={setStyleIncludeOther}
-      />
+          <OptionListEditor
+            questionPlaceholder="Tone question text, e.g. 选择语气"
+            question={toneQuestion}
+            onQuestionChange={setToneQuestion}
+            options={toneOptions}
+            onOptionsChange={setToneOptions}
+            includeOther={toneIncludeOther}
+            onIncludeOtherChange={setToneIncludeOther}
+          />
+
+          <OptionListEditor
+            questionPlaceholder="Style question text, e.g. 选择风格"
+            question={styleQuestion}
+            onQuestionChange={setStyleQuestion}
+            options={styleOptions}
+            onOptionsChange={setStyleOptions}
+            includeOther={styleIncludeOther}
+            onIncludeOtherChange={setStyleIncludeOther}
+          />
+        </>
+      )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">

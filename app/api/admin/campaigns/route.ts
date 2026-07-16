@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     identityIncludeOther,
     toneIncludeOther,
     styleIncludeOther,
+    questionMode,
   }: {
     slug: string;
     name: string;
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
     identityIncludeOther?: boolean;
     toneIncludeOther?: boolean;
     styleIncludeOther?: boolean;
+    questionMode?: "FIXED" | "AI_ADAPTIVE";
   } = await req.json();
 
   if (!slug || !name || !brandLink) {
@@ -60,6 +62,7 @@ export async function POST(req: NextRequest) {
       identityIncludeOther: Boolean(identityIncludeOther),
       toneIncludeOther: Boolean(toneIncludeOther),
       styleIncludeOther: Boolean(styleIncludeOther),
+      questionMode: questionMode === "AI_ADAPTIVE" ? "AI_ADAPTIVE" : "FIXED",
     },
   });
 
