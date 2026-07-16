@@ -14,7 +14,8 @@
     "individualCta": "Create a post",
     "commercialTitle": "Commercial Campaign",
     "commercialDesc": "For brands: let your customers generate a post about your product and join a lucky draw.",
-    "commercialCta": "View a campaign"
+    "commercialCta": "View a campaign",
+    "enterCta": "Enter site"
   },
   "auth": {
     "loginTitle": "Log in",

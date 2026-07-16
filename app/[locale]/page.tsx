@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { WelcomeSplash } from "@/components/welcome-splash";
 
 export default async function Home({
   params,
@@ -12,6 +13,7 @@ export default async function Home({
 
   return (
     <div className="flex flex-1 flex-col items-center px-4 py-16 sm:px-6">
+      <WelcomeSplash />
       <div className="w-full max-w-4xl text-center">
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-4xl">
           {t("title")}

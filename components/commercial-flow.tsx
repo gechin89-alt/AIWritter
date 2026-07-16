@@ -61,6 +61,7 @@ export function CommercialFlow({
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [followUpQuestions, setFollowUpQuestions] = useState<FollowUpQuestion[]>([]);
   const [followUpAnswers, setFollowUpAnswers] = useState<string[]>([]);
+  const [followUpIndex, setFollowUpIndex] = useState(0);
 
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,6 +110,7 @@ export function CommercialFlow({
       const questions: FollowUpQuestion[] = data.questions ?? [];
       setFollowUpQuestions(questions);
       setFollowUpAnswers(new Array(questions.length).fill(""));
+      setFollowUpIndex(0);
       setQuestionsFetched(true);
     } catch {
       setError(tc("continueLabel") + " — error");
@@ -203,6 +205,7 @@ export function CommercialFlow({
     setQuestionsFetched(false);
     setFollowUpQuestions([]);
     setFollowUpAnswers([]);
+    setFollowUpIndex(0);
     setResult(null);
     setSubmitted(false);
     setError(null);
@@ -327,13 +330,53 @@ export function CommercialFlow({
     );
   }
 
+  if (
+    questionMode === "AI_ADAPTIVE" &&
+    questionsFetched &&
+    followUpIndex < followUpQuestions.length
+  ) {
+    const q = followUpQuestions[followUpIndex];
+    return (
+      <div className="w-full max-w-lg">
+        <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
+        <div className="mt-6 flex flex-col gap-5">
+          <div>
+            <label className="text-sm font-medium">{q.question}</label>
+            <div className="mt-2">
+              <ChoiceGroupWithOther
+                options={q.options}
+                otherLabel={otherLabel}
+                otherPlaceholder={tc("otherPlaceholder")}
+                value={followUpAnswers[followUpIndex] ?? ""}
+                onChange={(value) => {
+                  const next = [...followUpAnswers];
+                  next[followUpIndex] = value;
+                  setFollowUpAnswers(next);
+                }}
+              />
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <button
+            onClick={() => setFollowUpIndex(followUpIndex + 1)}
+            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            {tc("continueLabel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-lg">
       <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
       <div className="mt-6 flex flex-col gap-5">
         {questionMode === "FIXED" && mediaField}
 
-        {questionMode === "FIXED" ? (
+        {questionMode === "FIXED" && (
           <>
             <div>
               <label className="text-sm font-medium">
@@ -380,25 +423,6 @@ export function CommercialFlow({
               </div>
             </div>
           </>
-        ) : (
-          followUpQuestions.map((q, i) => (
-            <div key={i}>
-              <label className="text-sm font-medium">{q.question}</label>
-              <div className="mt-2">
-                <ChoiceGroupWithOther
-                  options={q.options}
-                  otherLabel={otherLabel}
-                  otherPlaceholder={tc("otherPlaceholder")}
-                  value={followUpAnswers[i] ?? ""}
-                  onChange={(value) => {
-                    const next = [...followUpAnswers];
-                    next[i] = value;
-                    setFollowUpAnswers(next);
-                  }}
-                />
-              </div>
-            </div>
-          ))
         )}
 
         <div>

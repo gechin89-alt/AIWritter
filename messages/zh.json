@@ -14,7 +14,8 @@
     "individualCta": "创建帖子",
     "commercialTitle": "商业活动",
     "commercialDesc": "面向品牌方：让客户为你的产品生成帖子，并参与抽奖活动。",
-    "commercialCta": "查看活动"
+    "commercialCta": "查看活动",
+    "enterCta": "进入网站"
   },
   "auth": {
     "loginTitle": "登录",
