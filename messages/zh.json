@@ -7,8 +7,16 @@
     "logout": "退出登录"
   },
   "home": {
+    "badge": "AI 智能帖子生成",
     "title": "把你的想法变成即刻发布的内容",
     "subtitle": "用你自己的语气生成小红书和 Instagram 帖子，复制、粘贴即可发布。",
+    "howItWorksTitle": "使用流程",
+    "step1Title": "上传照片",
+    "step1Desc": "上传你想发布的照片或视频。",
+    "step2Title": "回答几个简单问题",
+    "step2Desc": "选择身份、语气和风格，或者让 AI 直接为你提问。",
+    "step3Title": "复制并发布",
+    "step3Desc": "获得可直接发布的文案，复制后发布到小红书或 Instagram。",
     "individualTitle": "个人帖子",
     "individualDesc": "上传一张照片或视频，回答几个简单问题，即可获得可直接发布的帖子。",
     "individualCta": "创建帖子",

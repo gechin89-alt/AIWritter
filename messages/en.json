@@ -7,8 +7,16 @@
     "logout": "Log out"
   },
   "home": {
+    "badge": "AI-powered post writer",
     "title": "Turn your ideas into ready-to-post content",
     "subtitle": "Generate Xiaohongshu and Instagram posts in your voice, then copy, paste, and publish.",
+    "howItWorksTitle": "How it works",
+    "step1Title": "Upload a photo",
+    "step1Desc": "Add the photo or video you want to post about.",
+    "step2Title": "Answer a few quick questions",
+    "step2Desc": "Pick your identity, tone, and style — or let AI ask you directly.",
+    "step3Title": "Copy and publish",
+    "step3Desc": "Get a ready-to-post caption, copy it, and publish on Xiaohongshu or Instagram.",
     "individualTitle": "Individual Post",
     "individualDesc": "Upload a photo or video, answer a few quick questions, and get a post ready to publish.",
     "individualCta": "Create a post",
