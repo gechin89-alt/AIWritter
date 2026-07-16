@@ -126,6 +126,9 @@
     "tabCampaigns": "Campaigns",
     "tabSubmissions": "Submissions",
     "tabIndividualPosts": "Individual Posts",
-    "tabDirectoryPreview": "Lucky Draw Directory Preview"
+    "tabDirectoryPreview": "Lucky Draw Directory Preview",
+    "managePrizes": "Manage prizes",
+    "save": "Save",
+    "cancel": "Cancel"
   }
 }

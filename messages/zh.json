@@ -111,6 +111,9 @@
     "tabCampaigns": "活动管理",
     "tabSubmissions": "提交记录",
     "tabIndividualPosts": "个人帖子记录",
-    "tabDirectoryPreview": "抽奖目录预览"
+    "tabDirectoryPreview": "抽奖目录预览",
+    "managePrizes": "管理奖品",
+    "save": "保存",
+    "cancel": "取消"
   }
 }

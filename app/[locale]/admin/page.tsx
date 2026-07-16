@@ -8,6 +8,7 @@ import { CampaignQr } from "@/components/campaign-qr";
 import { CampaignActions } from "@/components/campaign-actions";
 import { CampaignDirectoryList } from "@/components/campaign-directory-list";
 import { AdminTabs } from "@/components/admin-tabs";
+import { CampaignPrizeManager } from "@/components/campaign-prize-manager";
 
 export default async function AdminPage({
   params,
@@ -23,7 +24,10 @@ export default async function AdminPage({
     await Promise.all([
       prisma.campaign.findMany({
         orderBy: { createdAt: "desc" },
-        include: { _count: { select: { prizes: true } } },
+        include: {
+          _count: { select: { prizes: true } },
+          prizes: { orderBy: { rank: "asc" } },
+        },
       }),
       prisma.individualPost.findMany({
         include: { user: true },
@@ -148,6 +152,15 @@ export default async function AdminPage({
                           deleteLabel: t("delete"),
                           confirmDelete: t("confirmDelete"),
                           cannotDelete: t("cannotDelete"),
+                        }}
+                      />
+                      <CampaignPrizeManager
+                        campaignId={c.id}
+                        initialPrizes={c.prizes}
+                        labels={{
+                          manage: t("managePrizes"),
+                          save: t("save"),
+                          cancel: t("cancel"),
                         }}
                       />
                     </div>

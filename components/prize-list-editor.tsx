@@ -1,9 +1,13 @@
 "use client";
 
+import Image from "next/image";
+
 export type PrizeRow = {
   name: string;
   description: string;
   imageFile: File | null;
+  /** Already-uploaded image path when editing an existing prize. */
+  existingImagePath?: string | null;
 };
 
 export function PrizeListEditor({
@@ -60,6 +64,26 @@ export function PrizeListEditor({
             rows={2}
             className="mt-2 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
+
+          {prize.existingImagePath && !prize.imageFile && (
+            <div className="mt-2 flex items-center gap-2">
+              <Image
+                src={prize.existingImagePath}
+                alt=""
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => update(i, { existingImagePath: null })}
+                className="text-xs text-red-600 underline"
+              >
+                Remove photo
+              </button>
+            </div>
+          )}
+
           <input
             type="file"
             accept="image/*"
