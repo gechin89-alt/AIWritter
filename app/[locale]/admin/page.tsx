@@ -10,6 +10,7 @@ import { CampaignDirectoryList } from "@/components/campaign-directory-list";
 import { AdminTabs } from "@/components/admin-tabs";
 import { CampaignPrizeManager } from "@/components/campaign-prize-manager";
 import { CampaignViewButton } from "@/components/campaign-view-button";
+import { IconActionButton } from "@/components/icon-action-button";
 
 export default async function AdminPage({
   params,
@@ -136,7 +137,15 @@ export default async function AdminPage({
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {qr && (
-                        <CampaignViewButton url={qr.url} label={t("view")} />
+                        <>
+                          <CampaignViewButton url={qr.url} label={t("view")} />
+                          <IconActionButton
+                            icon="📝"
+                            label={t("openLive")}
+                            href={qr.url}
+                            variant="brand"
+                          />
+                        </>
                       )}
                       <CampaignActions
                         id={c.id}

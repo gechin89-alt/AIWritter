@@ -32,22 +32,49 @@ export default async function CommercialCampaignPage({
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center px-4 py-12 sm:px-6">
-      <div className="w-full max-w-lg">
-        <h1 className="text-2xl font-semibold">{campaign.name}</h1>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
-          {campaign.prizeInfo}
-        </p>
-        <PrizeCards prizes={campaign.prizes} title={tc("prizesTitle")} />
-        <details className="mt-4 text-sm text-zinc-500">
-          <summary className="cursor-pointer font-medium">
-            {tc("terms")}
-          </summary>
-          <p className="mt-2 whitespace-pre-wrap">{campaign.termsText}</p>
-        </details>
+    <div className="relative flex flex-1 flex-col items-center overflow-hidden px-4 py-10 sm:px-6">
+      <div
+        className="pointer-events-none absolute inset-x-0 -top-20 -z-10 flex justify-center blur-3xl"
+        aria-hidden
+      >
+        <div
+          className="h-64 w-[28rem] opacity-20"
+          style={{
+            backgroundImage: "linear-gradient(120deg, var(--brand), var(--accent))",
+          }}
+        />
       </div>
 
-      <div className="mt-10">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div
+          className="px-6 py-10 text-center text-white"
+          style={{
+            backgroundImage: "linear-gradient(120deg, var(--brand), var(--accent))",
+          }}
+        >
+          <span className="text-4xl">🎁</span>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">
+            {campaign.name}
+          </h1>
+        </div>
+
+        <div className="p-6">
+          <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
+            {campaign.prizeInfo}
+          </p>
+          <PrizeCards prizes={campaign.prizes} title={tc("prizesTitle")} />
+          <details className="mt-6 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+            <summary className="cursor-pointer font-medium text-zinc-700 dark:text-zinc-300">
+              {tc("terms")}
+            </summary>
+            <p className="mt-2 whitespace-pre-wrap text-zinc-500 dark:text-zinc-400">
+              {campaign.termsText}
+            </p>
+          </details>
+        </div>
+      </div>
+
+      <div className="mt-10 w-full max-w-lg">
         <CommercialFlow
           campaignSlug={campaign.slug}
           questionMode={campaign.questionMode}

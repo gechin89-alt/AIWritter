@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { SplashScreen } from "@/components/splash-screen";
+import { markSplashSeen } from "@/lib/splash";
 
 export default function WelcomePage() {
   const t = useTranslations("home");
@@ -11,7 +12,10 @@ export default function WelcomePage() {
 
   return (
     <SplashScreen
-      onEnter={() => router.push("/")}
+      onEnter={() => {
+        markSplashSeen();
+        router.push("/");
+      }}
       ctaLabel={t("enterCta")}
       brand={tn("brand")}
       tagline={t("subtitle")}

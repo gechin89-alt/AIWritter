@@ -117,6 +117,7 @@
     "hideQrCode": "Hide QR code",
     "scanToJoin": "Scan to join this campaign",
     "view": "View",
+    "openLive": "Generate a post (opens live page)",
     "activate": "Activate",
     "deactivate": "Deactivate",
     "delete": "Delete",

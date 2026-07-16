@@ -213,7 +213,7 @@ export function CommercialFlow({
 
   if (submitted) {
     return (
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <p className="rounded-lg bg-brand/10 p-4 text-sm text-brand">
           {tc("submitted")}
         </p>
@@ -234,7 +234,7 @@ export function CommercialFlow({
 
   if (result) {
     return (
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-xl font-semibold">{t("result")}</h2>
         <div className="mt-4 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950">
           {result}
@@ -298,7 +298,7 @@ export function CommercialFlow({
 
   if (questionMode === "AI_ADAPTIVE" && !questionsFetched) {
     return (
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
         <div className="mt-6 flex flex-col gap-5">
           {mediaField}
@@ -337,7 +337,7 @@ export function CommercialFlow({
   ) {
     const q = followUpQuestions[followUpIndex];
     return (
-      <div className="w-full max-w-lg">
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
         <div className="mt-6 flex flex-col gap-5">
           <div>
@@ -371,7 +371,7 @@ export function CommercialFlow({
   }
 
   return (
-    <div className="w-full max-w-lg">
+    <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
       <div className="mt-6 flex flex-col gap-5">
         {questionMode === "FIXED" && mediaField}

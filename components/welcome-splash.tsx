@@ -3,15 +3,14 @@
 import { useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { SplashScreen } from "./splash-screen";
-
-const STORAGE_KEY = "xhswriter_splash_seen";
+import { SPLASH_STORAGE_KEY, markSplashSeen } from "@/lib/splash";
 
 function subscribe() {
   return () => {};
 }
 
 function getSnapshot() {
-  return localStorage.getItem(STORAGE_KEY) === "1";
+  return localStorage.getItem(SPLASH_STORAGE_KEY) === "1";
 }
 
 function getServerSnapshot() {
@@ -32,7 +31,7 @@ export function WelcomeSplash() {
   if (alreadySeen || forceHidden) return null;
 
   function handleEnter() {
-    localStorage.setItem(STORAGE_KEY, "1");
+    markSplashSeen();
     setClosing(true);
     setTimeout(() => setForceHidden(true), 500);
   }

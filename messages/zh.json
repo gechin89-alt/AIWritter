@@ -102,6 +102,7 @@
     "hideQrCode": "隐藏二维码",
     "scanToJoin": "扫码参与活动",
     "view": "查看",
+    "openLive": "生成帖子（前往真实页面）",
     "activate": "启用",
     "deactivate": "停用",
     "delete": "删除",
