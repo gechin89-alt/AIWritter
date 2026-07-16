@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { CommercialFlow } from "@/components/commercial-flow";
+import { PrizeCards } from "@/components/prize-cards";
 
 function parseOptions(json: string | null): string[] | undefined {
   if (!json) return undefined;
@@ -22,7 +23,10 @@ export default async function CommercialCampaignPage({
   setRequestLocale(locale);
   const tc = await getTranslations("commercial");
 
-  const campaign = await prisma.campaign.findUnique({ where: { slug } });
+  const campaign = await prisma.campaign.findUnique({
+    where: { slug },
+    include: { prizes: { orderBy: { rank: "asc" } } },
+  });
   if (!campaign || !campaign.active) {
     notFound();
   }
@@ -34,6 +38,7 @@ export default async function CommercialCampaignPage({
         <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
           {campaign.prizeInfo}
         </p>
+        <PrizeCards prizes={campaign.prizes} title={tc("prizesTitle")} />
         <details className="mt-4 text-sm text-zinc-500">
           <summary className="cursor-pointer font-medium">
             {tc("terms")}

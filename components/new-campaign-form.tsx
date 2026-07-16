@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { OptionListEditor } from "./option-list-editor";
+import { PrizeListEditor, type PrizeRow } from "./prize-list-editor";
 
 export function NewCampaignForm({ label }: { label: string }) {
   const router = useRouter();
@@ -13,6 +14,7 @@ export function NewCampaignForm({ label }: { label: string }) {
   const [prizeInfo, setPrizeInfo] = useState("");
   const [termsText, setTermsText] = useState("");
   const [questionMode, setQuestionMode] = useState<"FIXED" | "AI_ADAPTIVE">("FIXED");
+  const [prizes, setPrizes] = useState<PrizeRow[]>([]);
 
   const [identityQuestion, setIdentityQuestion] = useState("");
   const [identityOptions, setIdentityOptions] = useState<string[]>([""]);
@@ -50,6 +52,16 @@ export function NewCampaignForm({ label }: { label: string }) {
     setStyleQuestion("");
     setStyleOptions([""]);
     setStyleIncludeOther(false);
+    setPrizes([]);
+  }
+
+  async function uploadPrizeImage(file: File): Promise<string | undefined> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    return data.path as string;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -57,6 +69,21 @@ export function NewCampaignForm({ label }: { label: string }) {
     setSubmitting(true);
     setError(null);
     try {
+      const preparedPrizes = (
+        await Promise.all(
+          prizes
+            .filter((p) => p.name.trim())
+            .map(async (p, i) => ({
+              rank: i + 1,
+              name: p.name.trim(),
+              description: p.description.trim() || undefined,
+              imagePath: p.imageFile
+                ? await uploadPrizeImage(p.imageFile)
+                : undefined,
+            })),
+        )
+      );
+
       const res = await fetch("/api/admin/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,6 +103,7 @@ export function NewCampaignForm({ label }: { label: string }) {
           styleQuestion: styleQuestion || undefined,
           styleOptions: cleanOptions(styleOptions),
           styleIncludeOther,
+          prizes: preparedPrizes.length > 0 ? preparedPrizes : undefined,
         }),
       });
       if (!res.ok) throw new Error("failed");
@@ -129,7 +157,7 @@ export function NewCampaignForm({ label }: { label: string }) {
       <textarea
         value={prizeInfo}
         onChange={(e) => setPrizeInfo(e.target.value)}
-        placeholder="Prize info"
+        placeholder="Prize overview (short summary, optional)"
         rows={2}
         className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
       />
@@ -140,6 +168,12 @@ export function NewCampaignForm({ label }: { label: string }) {
         rows={2}
         className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
       />
+
+      <div className="mt-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
+        Prizes (e.g. 第一奖, 第二奖, 第三奖) — name, description, and photo per
+        prize. Optional.
+      </div>
+      <PrizeListEditor prizes={prizes} onChange={setPrizes} />
 
       <div className="mt-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
         Question source

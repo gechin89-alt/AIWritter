@@ -14,8 +14,23 @@ export default async function CampaignsDirectoryPage({
   const campaigns = await prisma.campaign.findMany({
     where: { active: true },
     orderBy: { createdAt: "desc" },
-    select: { slug: true, name: true, prizeInfo: true },
+    select: {
+      slug: true,
+      name: true,
+      prizeInfo: true,
+      _count: { select: { prizes: true } },
+    },
   });
+
+  const campaignsWithLabels = campaigns.map((c) => ({
+    slug: c.slug,
+    name: c.name,
+    prizeInfo: c.prizeInfo,
+    prizeCountLabel:
+      c._count.prizes > 0
+        ? t("prizeCount", { count: c._count.prizes })
+        : null,
+  }));
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6">
@@ -27,7 +42,7 @@ export default async function CampaignsDirectoryPage({
       </p>
       <div className="mt-8">
         <CampaignDirectoryList
-          campaigns={campaigns}
+          campaigns={campaignsWithLabels}
           joinLabel={t("join")}
           emptyLabel={t("empty")}
         />

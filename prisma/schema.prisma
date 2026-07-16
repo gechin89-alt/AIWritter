@@ -75,6 +75,18 @@ model Campaign {
   questionMode    QuestionMode           @default(FIXED)
   createdAt       DateTime               @default(now())
   submissions     CommercialSubmission[]
+  prizes          Prize[]
+}
+
+model Prize {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  rank        Int
+  name        String
+  description String?
+  imagePath   String?
+  createdAt   DateTime @default(now())
 }
 
 model CommercialSubmission {

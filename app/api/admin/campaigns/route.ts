@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     toneIncludeOther,
     styleIncludeOther,
     questionMode,
+    prizes,
   }: {
     slug: string;
     name: string;
@@ -40,6 +41,12 @@ export async function POST(req: NextRequest) {
     toneIncludeOther?: boolean;
     styleIncludeOther?: boolean;
     questionMode?: "FIXED" | "AI_ADAPTIVE";
+    prizes?: {
+      rank: number;
+      name: string;
+      description?: string;
+      imagePath?: string;
+    }[];
   } = await req.json();
 
   if (!slug || !name || !brandLink) {
@@ -63,6 +70,16 @@ export async function POST(req: NextRequest) {
       toneIncludeOther: Boolean(toneIncludeOther),
       styleIncludeOther: Boolean(styleIncludeOther),
       questionMode: questionMode === "AI_ADAPTIVE" ? "AI_ADAPTIVE" : "FIXED",
+      prizes: prizes?.length
+        ? {
+            create: prizes.map((p) => ({
+              rank: p.rank,
+              name: p.name,
+              description: p.description ?? null,
+              imagePath: p.imagePath ?? null,
+            })),
+          }
+        : undefined,
     },
   });
 

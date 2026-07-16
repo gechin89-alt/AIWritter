@@ -21,7 +21,10 @@ export default async function AdminPage({
 
   const [campaigns, individualPosts, submissions, allSubmissionKeys] =
     await Promise.all([
-      prisma.campaign.findMany({ orderBy: { createdAt: "desc" } }),
+      prisma.campaign.findMany({
+        orderBy: { createdAt: "desc" },
+        include: { _count: { select: { prizes: true } } },
+      }),
       prisma.individualPost.findMany({
         include: { user: true },
         orderBy: { createdAt: "desc" },
@@ -70,7 +73,13 @@ export default async function AdminPage({
 
   const activeCampaigns = campaigns
     .filter((c) => c.active)
-    .map((c) => ({ slug: c.slug, name: c.name, prizeInfo: c.prizeInfo }));
+    .map((c) => ({
+      slug: c.slug,
+      name: c.name,
+      prizeInfo: c.prizeInfo,
+      prizeCountLabel:
+        c._count.prizes > 0 ? td("prizeCount", { count: c._count.prizes }) : null,
+    }));
 
   const campaignsTab = (
     <section>

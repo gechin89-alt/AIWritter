@@ -5,7 +5,12 @@ export function CampaignDirectoryList({
   joinLabel,
   emptyLabel,
 }: {
-  campaigns: { slug: string; name: string; prizeInfo: string }[];
+  campaigns: {
+    slug: string;
+    name: string;
+    prizeInfo: string;
+    prizeCountLabel?: string | null;
+  }[];
   joinLabel: string;
   emptyLabel: string;
 }) {
@@ -20,9 +25,16 @@ export function CampaignDirectoryList({
           key={c.slug}
           className="flex flex-col rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
         >
-          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
-            {c.name}
-          </h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              {c.name}
+            </h3>
+            {c.prizeCountLabel && (
+              <span className="shrink-0 rounded-full bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand">
+                {c.prizeCountLabel}
+              </span>
+            )}
+          </div>
           <p className="mt-2 flex-1 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
             {c.prizeInfo}
           </p>
