@@ -23,7 +23,14 @@
     "commercialTitle": "Commercial Campaign",
     "commercialDesc": "For brands: let your customers generate a post about your product and join a lucky draw.",
     "commercialCta": "View a campaign",
-    "enterCta": "Enter site"
+    "enterCta": "Enter site",
+    "directoryCta": "🎁 Lucky Draw Directory"
+  },
+  "directory": {
+    "title": "Lucky Draw Directory",
+    "subtitle": "Browse active campaigns and join a lucky draw.",
+    "join": "Join this campaign",
+    "empty": "No active campaigns right now — check back soon."
   },
   "auth": {
     "loginTitle": "Log in",
@@ -113,6 +120,10 @@
     "deactivate": "Deactivate",
     "delete": "Delete",
     "confirmDelete": "Delete this campaign? This cannot be undone.",
-    "cannotDelete": "This campaign has submissions and cannot be deleted. Deactivate it instead."
+    "cannotDelete": "This campaign has submissions and cannot be deleted. Deactivate it instead.",
+    "tabCampaigns": "Campaigns",
+    "tabSubmissions": "Submissions",
+    "tabIndividualPosts": "Individual Posts",
+    "tabDirectoryPreview": "Lucky Draw Directory Preview"
   }
 }

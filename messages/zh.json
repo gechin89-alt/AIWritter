@@ -23,7 +23,14 @@
     "commercialTitle": "商业活动",
     "commercialDesc": "面向品牌方：让客户为你的产品生成帖子，并参与抽奖活动。",
     "commercialCta": "查看活动",
-    "enterCta": "进入网站"
+    "enterCta": "进入网站",
+    "directoryCta": "🎁 抽奖目录"
+  },
+  "directory": {
+    "title": "抽奖目录",
+    "subtitle": "浏览进行中的活动，参与抽奖。",
+    "join": "参与这个活动",
+    "empty": "目前没有进行中的活动，请稍后再来看看。"
   },
   "auth": {
     "loginTitle": "登录",
@@ -98,6 +105,10 @@
     "deactivate": "停用",
     "delete": "删除",
     "confirmDelete": "确定要删除这个活动吗？此操作无法撤销。",
-    "cannotDelete": "该活动已有提交记录，无法删除，请改为停用。"
+    "cannotDelete": "该活动已有提交记录，无法删除，请改为停用。",
+    "tabCampaigns": "活动管理",
+    "tabSubmissions": "提交记录",
+    "tabIndividualPosts": "个人帖子记录",
+    "tabDirectoryPreview": "抽奖目录预览"
   }
 }
