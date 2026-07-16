@@ -61,9 +61,9 @@ export default async function AdminPage({
 
   const hdrs = await headers();
   const host = hdrs.get("host") ?? "localhost:3000";
-  const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1")
-    ? "http"
-    : "https";
+  const protocol =
+    hdrs.get("x-forwarded-proto") ??
+    (process.env.NODE_ENV === "production" ? "https" : "http");
   const baseUrl = `${protocol}://${host}`;
 
   const campaignQrCodes = new Map(

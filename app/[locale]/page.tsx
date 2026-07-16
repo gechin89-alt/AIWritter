@@ -99,22 +99,13 @@ export default async function Home({
                 {t("commercialDesc")}
               </p>
               <Link
-                href="/commercial/demo"
+                href="/campaigns"
                 className="mt-6 inline-flex items-center justify-center rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-dark"
               >
                 {t("commercialCta")}
               </Link>
             </div>
           </div>
-        </div>
-
-        <div className="mt-8 flex justify-center">
-          <Link
-            href="/campaigns"
-            className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:border-brand hover:text-brand dark:border-zinc-700 dark:text-zinc-300"
-          >
-            {t("directoryCta")}
-          </Link>
         </div>
       </div>
     </div>
