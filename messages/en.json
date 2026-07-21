@@ -122,6 +122,8 @@
     "linkPlaceholder": "Paste your Xiaohongshu post link here",
     "namePlaceholder": "Name",
     "phonePlaceholder": "Phone",
+    "contactRequiredLabel": "Enter your name and phone number to generate the post",
+    "submitAsLabel": "Submitting as {name} ({phone})",
     "submit": "Submit for the lucky draw",
     "submitted": "Thanks! Your entry has been recorded.",
     "entryCount": "You now have {count, plural, one {# lucky draw entry} other {# lucky draw entries}} for this campaign.",
