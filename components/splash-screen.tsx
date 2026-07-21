@@ -1,3 +1,5 @@
+import { LocaleSwitcher } from "./locale-switcher";
+
 export function SplashScreen({
   onEnter,
   closing,
@@ -24,6 +26,10 @@ export function SplashScreen({
             "linear-gradient(120deg, var(--brand), var(--accent), var(--brand-dark), var(--accent-dark))",
         }}
       />
+      <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+        <LocaleSwitcher />
+      </div>
+
       <div className="animate-float-slow absolute -left-16 top-10 h-56 w-56 rounded-full bg-white/20 blur-3xl" />
       <div
         className="animate-float-slower absolute right-0 top-1/3 h-72 w-72 rounded-full bg-white/10 blur-3xl"
