@@ -8,19 +8,19 @@
     "register": "Sign up",
     "admin": "Admin",
     "logout": "Log out",
-    "metaDescription": "Generate Xiaohongshu and Instagram posts in your voice."
+    "metaDescription": "Generate Xiaohongshu posts in your voice."
   },
   "home": {
     "badge": "AI-powered post writer",
     "title": "Turn your ideas into ready-to-post content",
-    "subtitle": "Generate Xiaohongshu and Instagram posts in your voice, then copy, paste, and publish.",
+    "subtitle": "Generate Xiaohongshu posts in your voice, then copy, paste, and publish.",
     "howItWorksTitle": "How it works",
     "step1Title": "Upload a photo",
     "step1Desc": "Add the photo or video you want to post about.",
     "step2Title": "Answer a few quick questions",
     "step2Desc": "Pick your identity, tone, and style — or let AI ask you directly.",
     "step3Title": "Copy and publish",
-    "step3Desc": "Get a ready-to-post caption, copy it, and publish on Xiaohongshu or Instagram.",
+    "step3Desc": "Get a ready-to-post caption, copy it, and publish on Xiaohongshu.",
     "individualTitle": "For Your Own Business",
     "individualDesc": "Merchants generate posts for their own brand — upload a product photo or video, answer a few quick questions, and get a consistent, ready-to-publish post.",
     "individualCta": "Start generating",

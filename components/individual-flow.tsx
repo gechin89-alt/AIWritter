@@ -4,13 +4,11 @@ import { useState } from "react";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { PlatformToggle } from "./platform-toggle";
 import { ChoiceGroup } from "./choice-group";
 import { MediaUploadField } from "./media-upload-field";
 import { BrandProfileEditor } from "./brand-profile-editor";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
-type Platform = "XHS" | "INSTAGRAM";
 
 export function IndividualFlow({
   used,
@@ -38,7 +36,8 @@ export function IndividualFlow({
   const [tone, setTone] = useState("");
   const [style, setStyle] = useState("");
   const [freeText, setFreeText] = useState("");
-  const [platform, setPlatform] = useState<Platform>("XHS");
+  // Instagram support is hidden for now — XHS only.
+  const platform = "XHS" as const;
 
   const [history, setHistory] = useState<ChatTurn[]>([]);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -261,13 +260,6 @@ export function IndividualFlow({
             rows={4}
             className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           />
-        </div>
-
-        <div>
-          <label className="text-sm font-medium">{t("platform")}</label>
-          <div className="mt-2">
-            <PlatformToggle value={platform} onChange={setPlatform} />
-          </div>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

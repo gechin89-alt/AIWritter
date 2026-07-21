@@ -8,19 +8,19 @@
     "register": "注册",
     "admin": "后台管理",
     "logout": "退出登录",
-    "metaDescription": "用你自己的语气生成小红书和 Instagram 帖子。"
+    "metaDescription": "用你自己的语气生成小红书帖子。"
   },
   "home": {
     "badge": "AI 智能帖子生成",
     "title": "把你的想法变成即刻发布的内容",
-    "subtitle": "用你自己的语气生成小红书和 Instagram 帖子，复制、粘贴即可发布。",
+    "subtitle": "用你自己的语气生成小红书帖子，复制、粘贴即可发布。",
     "howItWorksTitle": "使用流程",
     "step1Title": "上传照片",
     "step1Desc": "上传你想发布的照片或视频。",
     "step2Title": "回答几个简单问题",
     "step2Desc": "选择身份、语气和风格，或者让 AI 直接为你提问。",
     "step3Title": "复制并发布",
-    "step3Desc": "获得可直接发布的文案，复制后发布到小红书或 Instagram。",
+    "step3Desc": "获得可直接发布的文案，复制后发布到小红书。",
     "individualTitle": "品牌自营",
     "individualDesc": "商家自己上传产品照片或视频，回答几个简单问题，即可获得风格一致、可直接发布的帖子。",
     "individualCta": "开始生成",
