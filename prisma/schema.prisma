@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -35,6 +35,10 @@ model User {
   passwordHash   String
   role           Role             @default(USER)
   locale         String           @default("en")
+  postLimit      Int?
+  brandDescription String?
+  styleSampleText  String?
+  brandImagePaths  String?
   createdAt      DateTime         @default(now())
   individualPosts IndividualPost[]
 }
@@ -60,6 +64,9 @@ model Campaign {
   slug            String                 @unique
   name            String
   brandLink       String
+  brandColor      String?
+  logoPath        String?
+  productDescription String?
   prizeInfo       String
   termsText       String
   active          Boolean                @default(true)
@@ -72,6 +79,9 @@ model Campaign {
   identityIncludeOther Boolean @default(false)
   toneIncludeOther     Boolean @default(false)
   styleIncludeOther    Boolean @default(false)
+  identityMultiSelect  Boolean @default(false)
+  toneMultiSelect      Boolean @default(false)
+  styleMultiSelect     Boolean @default(false)
   questionMode    QuestionMode           @default(FIXED)
   createdAt       DateTime               @default(now())
   submissions     CommercialSubmission[]
@@ -86,6 +96,7 @@ model Prize {
   name        String
   description String?
   imagePath   String?
+  qty         Int?
   createdAt   DateTime @default(now())
 }
 
@@ -93,10 +104,13 @@ model CommercialSubmission {
   id               String           @id @default(cuid())
   campaignId       String
   campaign         Campaign         @relation(fields: [campaignId], references: [id])
-  name             String
-  phone            String
+  name             String?
+  phone            String?
   mediaPath        String?
+  photoVariants    String?
   generatedContent String?
+  titleVariants    String?
+  chosenTitle      String?
   xhsLink          String?
   status           SubmissionStatus @default(DRAFT)
   createdAt        DateTime         @default(now())

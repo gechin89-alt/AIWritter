@@ -34,7 +34,7 @@ export function CampaignDirectoryList({
           </p>
 
           {c.prizes.length > 0 && (
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <div className="scroll-visible mt-3 flex max-h-[170px] flex-wrap gap-2 overflow-y-auto pr-1">
               {c.prizes.map((p) => (
                 <div
                   key={p.id}

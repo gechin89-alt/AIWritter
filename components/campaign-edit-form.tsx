@@ -4,81 +4,89 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { OptionListEditor } from "./option-list-editor";
-import { PrizeListEditor, type PrizeRow } from "./prize-list-editor";
+import { IconActionButton } from "./icon-action-button";
 import { MediaUploadField } from "./media-upload-field";
 import { Modal } from "./modal";
 
-export function NewCampaignForm({ label }: { label: string }) {
+export type CampaignEditInitial = {
+  name: string;
+  brandLink: string;
+  brandColor: string | null;
+  logoPath: string | null;
+  productDescription: string;
+  prizeInfo: string;
+  termsText: string;
+  questionMode: "FIXED" | "AI_ADAPTIVE";
+  identityQuestion: string;
+  identityOptions: string[];
+  identityIncludeOther: boolean;
+  identityMultiSelect: boolean;
+  toneQuestion: string;
+  toneOptions: string[];
+  toneIncludeOther: boolean;
+  toneMultiSelect: boolean;
+  styleQuestion: string;
+  styleOptions: string[];
+  styleIncludeOther: boolean;
+  styleMultiSelect: boolean;
+};
+
+export function CampaignEditForm({
+  campaignId,
+  initial,
+  labels,
+}: {
+  campaignId: string;
+  initial: CampaignEditInitial;
+  labels: { edit: string; save: string; cancel: string };
+}) {
   const t = useTranslations("admin");
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [slug, setSlug] = useState("");
-  const [name, setName] = useState("");
-  const [brandLink, setBrandLink] = useState("");
-  const [enableBrandColor, setEnableBrandColor] = useState(false);
-  const [brandColor, setBrandColor] = useState("#ff2442");
+
+  const [name, setName] = useState(initial.name);
+  const [brandLink, setBrandLink] = useState(initial.brandLink);
+  const [enableBrandColor, setEnableBrandColor] = useState(initial.brandColor !== null);
+  const [brandColor, setBrandColor] = useState(initial.brandColor ?? "#ff2442");
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [productDescription, setProductDescription] = useState("");
-  const [prizeInfo, setPrizeInfo] = useState("");
-  const [termsText, setTermsText] = useState("");
-  const [questionMode, setQuestionMode] = useState<"FIXED" | "AI_ADAPTIVE">("FIXED");
-  const [prizes, setPrizes] = useState<PrizeRow[]>([]);
+  const [existingLogoPath, setExistingLogoPath] = useState(initial.logoPath);
+  const [productDescription, setProductDescription] = useState(
+    initial.productDescription,
+  );
+  const [prizeInfo, setPrizeInfo] = useState(initial.prizeInfo);
+  const [termsText, setTermsText] = useState(initial.termsText);
+  const [questionMode, setQuestionMode] = useState(initial.questionMode);
 
-  const [identityQuestion, setIdentityQuestion] = useState("");
-  const [identityOptions, setIdentityOptions] = useState<string[]>([""]);
-  const [identityIncludeOther, setIdentityIncludeOther] = useState(false);
-  const [identityMultiSelect, setIdentityMultiSelect] = useState(false);
+  const [identityQuestion, setIdentityQuestion] = useState(initial.identityQuestion);
+  const [identityOptions, setIdentityOptions] = useState<string[]>(
+    initial.identityOptions.length ? initial.identityOptions : [""],
+  );
+  const [identityIncludeOther, setIdentityIncludeOther] = useState(
+    initial.identityIncludeOther,
+  );
+  const [identityMultiSelect, setIdentityMultiSelect] = useState(
+    initial.identityMultiSelect,
+  );
 
-  const [toneQuestion, setToneQuestion] = useState("");
-  const [toneOptions, setToneOptions] = useState<string[]>([""]);
-  const [toneIncludeOther, setToneIncludeOther] = useState(false);
-  const [toneMultiSelect, setToneMultiSelect] = useState(false);
+  const [toneQuestion, setToneQuestion] = useState(initial.toneQuestion);
+  const [toneOptions, setToneOptions] = useState<string[]>(
+    initial.toneOptions.length ? initial.toneOptions : [""],
+  );
+  const [toneIncludeOther, setToneIncludeOther] = useState(initial.toneIncludeOther);
+  const [toneMultiSelect, setToneMultiSelect] = useState(initial.toneMultiSelect);
 
-  const [styleQuestion, setStyleQuestion] = useState("");
-  const [styleOptions, setStyleOptions] = useState<string[]>([""]);
-  const [styleIncludeOther, setStyleIncludeOther] = useState(false);
-  const [styleMultiSelect, setStyleMultiSelect] = useState(false);
+  const [styleQuestion, setStyleQuestion] = useState(initial.styleQuestion);
+  const [styleOptions, setStyleOptions] = useState<string[]>(
+    initial.styleOptions.length ? initial.styleOptions : [""],
+  );
+  const [styleIncludeOther, setStyleIncludeOther] = useState(initial.styleIncludeOther);
+  const [styleMultiSelect, setStyleMultiSelect] = useState(initial.styleMultiSelect);
 
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  function sanitizeSlug(value: string): string {
-    return value
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
-  }
-
-  function cleanOptions(options: string[]): string[] | undefined {
-    const items = options.map((s) => s.trim()).filter(Boolean);
-    return items.length > 0 ? items : undefined;
-  }
-
-  function resetForm() {
-    setSlug("");
-    setName("");
-    setBrandLink("");
-    setEnableBrandColor(false);
-    setBrandColor("#ff2442");
-    setLogoFile(null);
-    setProductDescription("");
-    setPrizeInfo("");
-    setTermsText("");
-    setQuestionMode("FIXED");
-    setIdentityQuestion("");
-    setIdentityOptions([""]);
-    setIdentityIncludeOther(false);
-    setIdentityMultiSelect(false);
-    setToneQuestion("");
-    setToneOptions([""]);
-    setToneIncludeOther(false);
-    setToneMultiSelect(false);
-    setStyleQuestion("");
-    setStyleOptions([""]);
-    setStyleIncludeOther(false);
-    setStyleMultiSelect(false);
-    setPrizes([]);
+  function cleanOptions(options: string[]): string[] {
+    return options.map((s) => s.trim()).filter(Boolean);
   }
 
   async function uploadFile(file: File): Promise<string | undefined> {
@@ -90,84 +98,59 @@ export function NewCampaignForm({ label }: { label: string }) {
     return data.path as string;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
+  async function handleSave() {
+    setSaving(true);
     setError(null);
     try {
-      const preparedPrizes = (
-        await Promise.all(
-          prizes
-            .filter((p) => p.name.trim())
-            .map(async (p, i) => ({
-              rank: i + 1,
-              name: p.name.trim(),
-              description: p.description.trim() || undefined,
-              imagePath: p.imageFile
-                ? await uploadFile(p.imageFile)
-                : undefined,
-            })),
-        )
-      );
+      const logoPath = logoFile ? await uploadFile(logoFile) : existingLogoPath;
 
-      const logoPath = logoFile ? await uploadFile(logoFile) : undefined;
-
-      const res = await fetch("/api/admin/campaigns", {
-        method: "POST",
+      const res = await fetch(`/api/admin/campaigns/${campaignId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          slug,
           name,
           brandLink,
-          brandColor: enableBrandColor ? brandColor : undefined,
+          brandColor: enableBrandColor ? brandColor : null,
           logoPath,
           productDescription,
           prizeInfo,
           termsText,
           questionMode,
-          identityQuestion: identityQuestion || undefined,
+          identityQuestion,
           identityOptions: cleanOptions(identityOptions),
           identityIncludeOther,
           identityMultiSelect,
-          toneQuestion: toneQuestion || undefined,
+          toneQuestion,
           toneOptions: cleanOptions(toneOptions),
           toneIncludeOther,
           toneMultiSelect,
-          styleQuestion: styleQuestion || undefined,
+          styleQuestion,
           styleOptions: cleanOptions(styleOptions),
           styleIncludeOther,
           styleMultiSelect,
-          prizes: preparedPrizes.length > 0 ? preparedPrizes : undefined,
         }),
       });
       if (!res.ok) throw new Error("failed");
       setOpen(false);
-      resetForm();
       router.refresh();
     } catch {
-      setError(t("createFailed"));
+      setError(t("editFailed"));
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   }
 
   return (
     <>
-      <button
+      <IconActionButton
+        icon="✏️"
+        label={labels.edit}
         onClick={() => setOpen(true)}
-        className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-      >
-        {label}
-      </button>
-      <Modal open={open} onClose={() => setOpen(false)} title={label} wide>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <input
-            required
-            value={slug}
-            onChange={(e) => setSlug(sanitizeSlug(e.target.value))}
-            placeholder={t("formSlugPlaceholder")}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
+        active={open}
+        variant="neutral"
+      />
+      <Modal open={open} onClose={() => setOpen(false)} title={labels.edit} wide>
+        <div className="flex flex-col gap-3">
           <input
             required
             value={name}
@@ -205,6 +188,8 @@ export function NewCampaignForm({ label }: { label: string }) {
             accept="image/*"
             uploadLabel={t("formLogoUploadCta")}
             removeLabel={t("formLogoRemove")}
+            existingUrl={existingLogoPath}
+            onRemoveExisting={() => setExistingLogoPath(null)}
           />
           <textarea
             value={productDescription}
@@ -227,11 +212,6 @@ export function NewCampaignForm({ label }: { label: string }) {
             rows={2}
             className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
-
-          <div className="mt-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
-            {t("formPrizesHint")}
-          </div>
-          <PrizeListEditor prizes={prizes} onChange={setPrizes} />
 
           <div className="mt-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
             {t("formQuestionSource")}
@@ -257,10 +237,6 @@ export function NewCampaignForm({ label }: { label: string }) {
 
           {questionMode === "FIXED" && (
             <>
-              <div className="border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
-                {t("formCustomizeHint")}
-              </div>
-
               <OptionListEditor
                 questionPlaceholder={t("formIdentityQPlaceholder")}
                 question={identityQuestion}
@@ -302,21 +278,22 @@ export function NewCampaignForm({ label }: { label: string }) {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">
             <button
-              type="submit"
-              disabled={submitting}
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
               className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
             >
-              {t("save")}
+              {labels.save}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
               className="rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
             >
-              {t("cancel")}
+              {labels.cancel}
             </button>
           </div>
-        </form>
+        </div>
       </Modal>
     </>
   );

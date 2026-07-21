@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { PrizeListEditor, type PrizeRow } from "./prize-list-editor";
 import { IconActionButton } from "./icon-action-button";
@@ -16,9 +17,11 @@ export function CampaignPrizeManager({
     name: string;
     description: string | null;
     imagePath: string | null;
+    qty: number | null;
   }[];
   labels: { manage: string; save: string; cancel: string };
 }) {
+  const t = useTranslations("admin");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [prizes, setPrizes] = useState<PrizeRow[]>(() =>
@@ -27,6 +30,7 @@ export function CampaignPrizeManager({
       description: p.description ?? "",
       imageFile: null,
       existingImagePath: p.imagePath,
+      qty: p.qty != null ? String(p.qty) : "",
     })),
   );
   const [saving, setSaving] = useState(false);
@@ -55,6 +59,7 @@ export function CampaignPrizeManager({
             imagePath: p.imageFile
               ? await uploadImage(p.imageFile)
               : p.existingImagePath || undefined,
+            qty: p.qty.trim() ? Number(p.qty) : undefined,
           })),
       );
       const res = await fetch(`/api/admin/campaigns/${campaignId}/prizes`, {
@@ -66,7 +71,7 @@ export function CampaignPrizeManager({
       setOpen(false);
       router.refresh();
     } catch {
-      setError("Failed to save prizes");
+      setError(t("prizesFailed"));
     } finally {
       setSaving(false);
     }

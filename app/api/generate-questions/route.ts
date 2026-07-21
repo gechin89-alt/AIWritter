@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readImageAsBase64 } from "@/lib/media";
-import { generateFollowUpQuestions } from "@/lib/anthropic";
+import { generateFollowUpQuestions, AiUnavailableError } from "@/lib/anthropic";
 
 export async function POST(req: NextRequest) {
   const { category, mediaPath }: { category?: string; mediaPath?: string } =
@@ -12,11 +12,17 @@ export async function POST(req: NextRequest) {
 
   const image = mediaPath ? await readImageAsBase64(mediaPath) : undefined;
 
-  const questions = await generateFollowUpQuestions({
-    category,
-    imageBase64: image?.imageBase64,
-    imageMediaType: image?.imageMediaType,
-  });
-
-  return NextResponse.json({ questions });
+  try {
+    const questions = await generateFollowUpQuestions({
+      category,
+      imageBase64: image?.imageBase64,
+      imageMediaType: image?.imageMediaType,
+    });
+    return NextResponse.json({ questions });
+  } catch (err) {
+    if (err instanceof AiUnavailableError) {
+      return NextResponse.json({ error: "ai_unavailable" }, { status: 503 });
+    }
+    throw err;
+  }
 }

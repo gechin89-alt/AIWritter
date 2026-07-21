@@ -30,7 +30,7 @@ export async function generateMetadata({
   const t = await getTranslations({ locale, namespace: "nav" });
   return {
     title: t("brand"),
-    description: "Generate Xiaohongshu and Instagram posts in your voice.",
+    description: t("metaDescription"),
   };
 }
 

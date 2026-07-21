@@ -1,24 +1,26 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import sharp from "sharp";
+import { fetchAsBuffer } from "./cloudinary";
 
-const MEDIA_TYPES: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".png": "image/png",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
+const FORMAT_TO_MIME: Record<string, string> = {
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
 };
 
 export async function readImageAsBase64(
-  mediaPath: string,
+  mediaUrl: string,
 ): Promise<{ imageBase64: string; imageMediaType: string } | undefined> {
-  const ext = path.extname(mediaPath).toLowerCase();
-  const mimeType = MEDIA_TYPES[ext];
-  if (!mimeType) return undefined;
-
   try {
-    const filePath = path.join(process.cwd(), "public", mediaPath);
-    const buffer = await readFile(filePath);
+    const buffer = await fetchAsBuffer(mediaUrl);
+
+    // Detect the real format from the file's actual content rather than
+    // trusting its extension — a mismatched declared media type (e.g. a
+    // .jpg file that is actually WEBP-encoded) gets rejected by Claude's API.
+    const metadata = await sharp(buffer).metadata();
+    const mimeType = metadata.format ? FORMAT_TO_MIME[metadata.format] : undefined;
+    if (!mimeType) return undefined;
+
     return { imageBase64: buffer.toString("base64"), imageMediaType: mimeType };
   } catch {
     return undefined;

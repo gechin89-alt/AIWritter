@@ -48,3 +48,12 @@ next-env.d.ts
 # uploads
 /public/uploads/*
 !/public/uploads/.gitkeep
+
+# local-only dev tool (Windows binary, ~45MB, not used in production)
+/tools/
+
+# personal/unrelated files that shouldn't be in this code repo
+/.claude/
+青年團1月至7月善行活動.pptx
+青年團1月至7月善行活動.docx
+~$*

@@ -12,6 +12,9 @@ export async function POST(req: NextRequest) {
     slug,
     name,
     brandLink,
+    brandColor,
+    logoPath,
+    productDescription,
     prizeInfo,
     termsText,
     identityOptions,
@@ -23,12 +26,18 @@ export async function POST(req: NextRequest) {
     identityIncludeOther,
     toneIncludeOther,
     styleIncludeOther,
+    identityMultiSelect,
+    toneMultiSelect,
+    styleMultiSelect,
     questionMode,
     prizes,
   }: {
     slug: string;
     name: string;
     brandLink: string;
+    brandColor?: string;
+    logoPath?: string;
+    productDescription?: string;
     prizeInfo?: string;
     termsText?: string;
     identityOptions?: string[];
@@ -40,6 +49,9 @@ export async function POST(req: NextRequest) {
     identityIncludeOther?: boolean;
     toneIncludeOther?: boolean;
     styleIncludeOther?: boolean;
+    identityMultiSelect?: boolean;
+    toneMultiSelect?: boolean;
+    styleMultiSelect?: boolean;
     questionMode?: "FIXED" | "AI_ADAPTIVE";
     prizes?: {
       rank: number;
@@ -52,12 +64,24 @@ export async function POST(req: NextRequest) {
   if (!slug || !name || !brandLink) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
+  if (!/^[a-z0-9-]+$/.test(slug)) {
+    return NextResponse.json(
+      { error: "Slug must contain only lowercase letters, numbers, and hyphens" },
+      { status: 400 },
+    );
+  }
+
+  const validBrandColor =
+    brandColor && /^#[0-9a-fA-F]{6}$/.test(brandColor.trim()) ? brandColor.trim() : null;
 
   const campaign = await prisma.campaign.create({
     data: {
       slug,
       name,
       brandLink,
+      brandColor: validBrandColor,
+      logoPath: logoPath || null,
+      productDescription: productDescription || null,
       prizeInfo: prizeInfo ?? "",
       termsText: termsText ?? "",
       identityOptions: identityOptions ? JSON.stringify(identityOptions) : null,
@@ -69,6 +93,9 @@ export async function POST(req: NextRequest) {
       identityIncludeOther: Boolean(identityIncludeOther),
       toneIncludeOther: Boolean(toneIncludeOther),
       styleIncludeOther: Boolean(styleIncludeOther),
+      identityMultiSelect: Boolean(identityMultiSelect),
+      toneMultiSelect: Boolean(toneMultiSelect),
+      styleMultiSelect: Boolean(styleMultiSelect),
       questionMode: questionMode === "AI_ADAPTIVE" ? "AI_ADAPTIVE" : "FIXED",
       prizes: prizes?.length
         ? {

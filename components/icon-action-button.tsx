@@ -17,7 +17,7 @@ const activeVariantClass: Record<Variant, string> = {
 };
 
 const baseClass =
-  "flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-sm transition-colors disabled:opacity-40 dark:border-zinc-700";
+  "flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 text-xs transition-colors disabled:opacity-40 dark:border-zinc-700 sm:h-8 sm:w-8 sm:text-sm";
 
 export function IconActionButton({
   icon,

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { uploadBufferToCloudinary } from "@/lib/cloudinary";
 
 const ALLOWED_EXT = new Set([
   ".jpg",
@@ -13,6 +12,7 @@ const ALLOWED_EXT = new Set([
   ".mov",
   ".webm",
 ]);
+const VIDEO_EXT = new Set([".mp4", ".mov", ".webm"]);
 const MAX_SIZE_BYTES = 25 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const filename = `${randomUUID()}${ext}`;
-  const filePath = path.join(process.cwd(), "public", "uploads", filename);
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, buffer);
+  const url = await uploadBufferToCloudinary(buffer, {
+    resourceType: VIDEO_EXT.has(ext) ? "video" : "image",
+  });
 
-  return NextResponse.json({ path: `/uploads/${filename}` });
+  return NextResponse.json({ path: url });
 }

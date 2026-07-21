@@ -1,15 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useState } from "react";
+import Image from "next/image";
+import { useTranslations, useLocale } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
 import { PlatformToggle } from "./platform-toggle";
 import { ChoiceGroup } from "./choice-group";
+import { MediaUploadField } from "./media-upload-field";
+import { BrandProfileEditor } from "./brand-profile-editor";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 type Platform = "XHS" | "INSTAGRAM";
 
-export function IndividualFlow() {
+export function IndividualFlow({
+  used,
+  limit,
+  unlimited = false,
+}: {
+  used: number;
+  limit: number;
+  unlimited?: boolean;
+}) {
   const t = useTranslations("individual");
+  const locale = useLocale();
+  const router = useRouter();
+  const remaining = Math.max(0, limit - used);
 
   const identityOptions = t.raw("identityOptions") as string[];
   const toneOptions = t.raw("toneOptions") as string[];
@@ -33,17 +48,7 @@ export function IndividualFlow() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const previewUrl = useMemo(
-    () => (mediaFile ? URL.createObjectURL(mediaFile) : null),
-    [mediaFile],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
+  const [aiUnavailable, setAiUnavailable] = useState(false);
 
   async function uploadMediaIfNeeded(): Promise<string | undefined> {
     if (!mediaFile) return undefined;
@@ -80,8 +85,18 @@ export function IndividualFlow() {
           freeText,
           mediaPath: resolvedMediaPath ?? mediaPath ?? undefined,
           history: nextHistory,
+          locale,
         }),
       });
+      if (res.status === 402) {
+        router.push("/upgrade");
+        return;
+      }
+      if (res.status === 503) {
+        setAiUnavailable(true);
+        setError(unlimited ? t("aiUnavailableAdmin") : t("aiUnavailable"));
+        return;
+      }
       if (!res.ok) throw new Error("generate failed");
       const data = await res.json();
       if (data.type === "question") {
@@ -92,13 +107,17 @@ export function IndividualFlow() {
         setResult(data.content);
       }
     } catch {
-      setError(t("generate") + " — error");
+      setError(t("errorGeneric"));
     } finally {
       setLoading(false);
     }
   }
 
   async function handleGenerate() {
+    if (!unlimited && remaining <= 0) {
+      router.push("/upgrade");
+      return;
+    }
     const path = await uploadMediaIfNeeded();
     await callGenerate([], path);
   }
@@ -121,9 +140,26 @@ export function IndividualFlow() {
   }
 
   if (result) {
+    const isVideo = mediaFile?.type.startsWith("video/") ?? false;
     return (
       <div className="w-full max-w-lg">
         <h2 className="text-xl font-semibold">{t("result")}</h2>
+        {mediaPath &&
+          (isVideo ? (
+            <video
+              src={mediaPath}
+              controls
+              className="mt-4 max-h-72 w-auto rounded-lg border border-zinc-200 dark:border-zinc-800"
+            />
+          ) : (
+            <Image
+              src={mediaPath}
+              alt=""
+              width={240}
+              height={240}
+              className="mt-4 max-h-72 w-auto rounded-lg border border-zinc-200 object-contain dark:border-zinc-800"
+            />
+          ))}
         <div className="mt-4 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950">
           {result}
         </div>
@@ -150,10 +186,15 @@ export function IndividualFlow() {
           rows={3}
           className="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
         />
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         <button
           onClick={handleClarifySubmit}
-          disabled={loading}
-          className="mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          disabled={loading || aiUnavailable}
+          className={
+            aiUnavailable
+              ? "mt-3 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+              : "mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          }
         >
           {loading ? t("generating") : t("generate")}
         </button>
@@ -163,40 +204,28 @@ export function IndividualFlow() {
 
   return (
     <div className="w-full max-w-lg">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">{t("title")}</h1>
+        <BrandProfileEditor />
+      </div>
+      <p
+        className={`mt-2 text-sm ${!unlimited && remaining <= 0 ? "text-red-600" : "text-zinc-500 dark:text-zinc-400"}`}
+      >
+        {unlimited ? t("quotaUnlimited") : t("quotaRemaining", { count: remaining })}
+      </p>
 
       <div className="mt-6 flex flex-col gap-5">
-        <div>
-          <label className="text-sm font-medium">{t("stepMedia")}</label>
-          <input
-            type="file"
-            accept="image/*,video/*"
-            onChange={(e) => {
-              setMediaFile(e.target.files?.[0] ?? null);
-              setMediaPath(null);
-            }}
-            className="mt-1 block w-full text-sm"
-          />
-          {previewUrl && mediaFile && (
-            <div className="mt-3">
-              {mediaFile.type.startsWith("video/") ? (
-                <video
-                  src={previewUrl}
-                  controls
-                  className="max-h-64 rounded-lg border border-zinc-200 dark:border-zinc-800"
-                />
-              ) : (
-                // Local blob preview — next/image can't optimize blob: URLs
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={previewUrl}
-                  alt=""
-                  className="max-h-64 rounded-lg border border-zinc-200 object-contain dark:border-zinc-800"
-                />
-              )}
-            </div>
-          )}
-        </div>
+        <MediaUploadField
+          label={t("stepMedia")}
+          file={mediaFile}
+          onChange={(file) => {
+            setMediaFile(file);
+            setMediaPath(null);
+          }}
+          accept="image/*,video/*"
+          uploadLabel={t("uploadCta")}
+          removeLabel={t("removePhoto")}
+        />
 
         <div>
           <label className="text-sm font-medium">{t("identity")}</label>
@@ -245,8 +274,12 @@ export function IndividualFlow() {
 
         <button
           onClick={handleGenerate}
-          disabled={loading || uploading}
-          className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          disabled={loading || uploading || aiUnavailable}
+          className={
+            aiUnavailable
+              ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+              : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          }
         >
           {loading || uploading ? t("generating") : t("generate")}
         </button>

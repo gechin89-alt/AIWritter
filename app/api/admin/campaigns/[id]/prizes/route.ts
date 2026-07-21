@@ -20,6 +20,7 @@ export async function PUT(
       name: string;
       description?: string;
       imagePath?: string;
+      qty?: number;
     }[];
   } = await req.json();
 
@@ -32,6 +33,7 @@ export async function PUT(
         name: p.name,
         description: p.description ?? null,
         imagePath: p.imagePath ?? null,
+        qty: Number.isInteger(p.qty) ? p.qty : null,
       })),
     }),
   ]);

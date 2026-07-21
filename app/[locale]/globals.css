@@ -106,3 +106,21 @@ body {
     fade-in-up 0.7s ease-out 0.3s both,
     pulse-glow 2.2s ease-in-out infinite 1.2s;
 }
+
+.scroll-visible {
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand) transparent;
+}
+
+.scroll-visible::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-visible::-webkit-scrollbar-thumb {
+  background-color: var(--brand);
+  border-radius: 9999px;
+}
+
+.scroll-visible::-webkit-scrollbar-track {
+  background: transparent;
+}

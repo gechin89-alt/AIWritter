@@ -19,9 +19,19 @@ export default async function CommercialCampaignPage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  const { locale, slug } = await params;
+  const { locale, slug: rawSlug } = await params;
   setRequestLocale(locale);
   const tc = await getTranslations("commercial");
+
+  // Next.js does not always decode dynamic route segments that contain
+  // percent-encoded characters (e.g. spaces as %20) — decode defensively so
+  // slugs created before URL-safe validation was enforced still resolve.
+  let slug = rawSlug;
+  try {
+    slug = decodeURIComponent(rawSlug);
+  } catch {
+    // rawSlug wasn't encoded — use as-is
+  }
 
   const campaign = await prisma.campaign.findUnique({
     where: { slug },
@@ -87,6 +97,9 @@ export default async function CommercialCampaignPage({
           identityIncludeOther={campaign.identityIncludeOther}
           toneIncludeOther={campaign.toneIncludeOther}
           styleIncludeOther={campaign.styleIncludeOther}
+          identityMultiSelect={campaign.identityMultiSelect}
+          toneMultiSelect={campaign.toneMultiSelect}
+          styleMultiSelect={campaign.styleMultiSelect}
         />
       </div>
     </div>

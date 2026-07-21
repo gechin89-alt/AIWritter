@@ -30,7 +30,23 @@ export default async function proxy(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
   }
-  return intlMiddleware(req);
+
+  const response = intlMiddleware(req);
+
+  // The bare root URL ("/") should land on the welcome splash rather than
+  // the home page — redirect through it before next-intl's locale prefix.
+  if (req.nextUrl.pathname === "/") {
+    const location = response.headers.get("location");
+    if (location) {
+      const url = new URL(location);
+      if (/^\/(en|zh)\/?$/.test(url.pathname)) {
+        url.pathname = `${url.pathname.replace(/\/$/, "")}/welcome`;
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
+  return response;
 }
 
 export const config = {

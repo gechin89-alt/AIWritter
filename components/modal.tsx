@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 export function Modal({
   open,
@@ -15,6 +16,8 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const t = useTranslations("common");
+
   if (!open) return null;
 
   return (
@@ -38,7 +41,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("close")}
             className="ml-auto rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
           >
             ✕

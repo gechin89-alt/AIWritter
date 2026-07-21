@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { IconActionButton } from "./icon-action-button";
 
@@ -21,6 +22,7 @@ export function CampaignActions({
     cannotDelete: string;
   };
 }) {
+  const t = useTranslations("admin");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export function CampaignActions({
       if (!res.ok) throw new Error("failed");
       router.refresh();
     } catch {
-      setError("Failed");
+      setError(t("actionFailed"));
     } finally {
       setBusy(false);
     }
@@ -58,7 +60,7 @@ export function CampaignActions({
       if (!res.ok) throw new Error("failed");
       router.refresh();
     } catch {
-      setError("Failed");
+      setError(t("actionFailed"));
     } finally {
       setBusy(false);
     }
