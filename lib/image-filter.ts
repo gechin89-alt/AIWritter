@@ -22,6 +22,34 @@ function lightenHex(hex: string, amount: number): string {
     .join("")}`;
 }
 
+/**
+ * Crops to XHS's preferred 3:4 (portrait) feed ratio using smart "attention"
+ * cropping (keeps the most visually interesting region) rather than a naive
+ * center crop. Never upscales — the crop box is derived directly from the
+ * source image's own resolution.
+ */
+async function cropTo3by4(buffer: Buffer): Promise<Buffer> {
+  const meta = await sharp(buffer).metadata();
+  const origW = meta.width ?? 800;
+  const origH = meta.height ?? 800;
+  const targetRatio = 3 / 4;
+
+  let targetW: number;
+  let targetH: number;
+  if (origW / origH > targetRatio) {
+    targetH = origH;
+    targetW = Math.round(origH * targetRatio);
+  } else {
+    targetW = origW;
+    targetH = Math.round(origW / targetRatio);
+  }
+
+  return sharp(buffer)
+    .resize(targetW, targetH, { fit: "cover", position: sharp.strategy.attention })
+    .jpeg({ quality: 92 })
+    .toBuffer();
+}
+
 function escapeXml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -258,6 +286,7 @@ export async function applyBeautifyOnly(
     image = image.linear(cfg.linear.a, cfg.linear.b);
   }
   let buffer = await image.jpeg({ quality: 92 }).toBuffer();
+  buffer = await cropTo3by4(buffer);
   let { width = 800, height = 800 } = await sharp(buffer).metadata();
 
   for (const overlay of cfg.overlays ?? []) {
@@ -313,8 +342,11 @@ export async function applyBeautifyOnly(
         .toBuffer();
     } else {
       const overlayBuffer = await renderCaptionOverlay(captionText, width, height, cfg.captionGradient);
+      // XHS feed thumbnails get their top ~15% covered by the app's own UI
+      // chrome, so real viral covers leave that strip blank and place text
+      // in the upper-center third instead of flush against the top edge.
       buffer = await sharp(buffer)
-        .composite([{ input: overlayBuffer, left: 0, top: 0 }])
+        .composite([{ input: overlayBuffer, left: 0, top: Math.round(height * 0.13) }])
         .jpeg({ quality: 92 })
         .toBuffer();
     }
@@ -361,6 +393,7 @@ export async function applyBrandStyle(
   }
 
   let buffer = await image.jpeg({ quality: 92 }).toBuffer();
+  buffer = await cropTo3by4(buffer);
   const { width = 800, height = 800 } = await sharp(buffer).metadata();
 
   // Blend the brand color in as a translucent color-grade layer rather than
@@ -387,8 +420,11 @@ export async function applyBrandStyle(
     const brandHex = options.brandColorHex ?? "#222222";
     const gradientColors: [string, string] = [brandHex, lightenHex(brandHex, 0.45)];
     const overlayBuffer = await renderCaptionOverlay(options.hookText!.trim(), width, height, gradientColors);
+    // XHS feed thumbnails get their top ~15% covered by the app's own UI
+    // chrome, so real viral covers leave that strip blank and place text
+    // in the upper-center third instead of flush against the top edge.
     buffer = await sharp(buffer)
-      .composite([{ input: overlayBuffer, left: 0, top: 0 }])
+      .composite([{ input: overlayBuffer, left: 0, top: Math.round(height * 0.13) }])
       .jpeg({ quality: 92 })
       .toBuffer();
   }
