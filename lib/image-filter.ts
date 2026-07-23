@@ -1,6 +1,31 @@
 import sharp from "sharp";
-import type { LogoPosition, PhotoStylePreset } from "./anthropic";
+import type { LogoPosition } from "./anthropic";
 import { uploadBufferToCloudinary } from "./cloudinary";
+
+/**
+ * Free alternative to Cloudinary's paid background-removal add-on: fades
+ * near-white pixels to transparent (soft threshold for smooth edges rather
+ * than a hard cutoff). Works well for the common "logo on a flat white
+ * background" case; won't handle non-white or complex backgrounds — that
+ * would need real AI segmentation (a paid API).
+ */
+export async function removeWhiteBackground(buffer: Buffer): Promise<Buffer> {
+  const image = sharp(buffer).ensureAlpha();
+  const { data, info } = await image.raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+
+  const lower = 200;
+  const upper = 250;
+  for (let i = 0; i < data.length; i += channels) {
+    const minC = Math.min(data[i], data[i + 1], data[i + 2]);
+    if (minC >= lower) {
+      const t = Math.min(1, (minC - lower) / (upper - lower));
+      data[i + 3] = Math.round(data[i + 3] * (1 - t));
+    }
+  }
+
+  return sharp(data, { raw: { width, height, channels } }).png().toBuffer();
+}
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
@@ -57,27 +82,6 @@ function escapeXml(text: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
-
-type PresetConfig = {
-  brightness?: number;
-  saturation?: number;
-  linear?: { a: number; b: number };
-  colorBlend?: "overlay" | "soft-light" | "multiply" | "screen";
-  colorOpacity?: number;
-};
-
-const PRESETS: Record<PhotoStylePreset, PresetConfig> = {
-  vivid: { brightness: 1.05, saturation: 1.25, colorBlend: "overlay", colorOpacity: 0.16 },
-  warm: { brightness: 1.05, saturation: 1.05, colorBlend: "soft-light", colorOpacity: 0.24 },
-  moody: {
-    brightness: 0.88,
-    saturation: 0.9,
-    linear: { a: 1.12, b: -12 },
-    colorBlend: "multiply",
-    colorOpacity: 0.2,
-  },
-  soft: { brightness: 1.08, saturation: 0.75, colorBlend: "screen", colorOpacity: 0.14 },
-};
 
 /**
  * Text sits directly on the photo — no solid banner box — with a gradient
@@ -262,6 +266,18 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
 };
 
 /**
+ * Randomly assigns `count` DISTINCT trend styles from the full curated set —
+ * used so the several photo variants shown to a customer are guaranteed to
+ * look genuinely different from each other, rather than hoping the AI
+ * naturally avoids picking similar moods.
+ */
+export function pickRandomTrendStyles(count: number): TrendStyle[] {
+  const keys = Object.keys(TREND_STYLES) as TrendStyle[];
+  const shuffled = [...keys].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+/**
  * Temporary test-only helper: applies a curated trend-style color grade
  * (2026's popular looks — golden hour, film grain, cinematic teal-orange,
  * soft glow, quiet luxury, vintage film, earth tone, bright clean), an
@@ -356,62 +372,75 @@ export async function applyBeautifyOnly(
 }
 
 /**
- * Applies AI-directed brand styling to an uploaded photo: a color-grade
- * preset (chosen per-photo by Claude, blended in rather than a flat duotone
- * so photos don't all look identical), a scroll-stopping hook-text caption
- * (gradient-filled, drop-shadowed, sitting directly on the photo), and an
- * optional logo watermark placed wherever Claude judged the photo has open
- * background. Returns null only if there is truly nothing to apply.
+ * Applies AI-directed brand styling to an uploaded photo: a random pick from
+ * the curated 12-style trend set (so the several variants shown to a
+ * customer are genuinely distinct from each other, matching XHS's current
+ * viral look rather than one flat brand filter), a subtle brand-color wash
+ * layered on top so brand identity still comes through, a scroll-stopping
+ * hook-text caption (gradient-filled, drop-shadowed, sitting directly on the
+ * photo), and an optional logo watermark placed wherever Claude judged the
+ * photo has open background.
  */
 export async function applyBrandStyle(
   inputBuffer: Buffer,
   options: {
-    stylePreset?: PhotoStylePreset | null;
+    trendStyle: TrendStyle;
     brandColorHex?: string | null;
     hookText?: string | null;
     logoBuffer?: Buffer | null;
     logoPosition?: LogoPosition | null;
   },
-): Promise<string | null> {
-  const preset = options.stylePreset ? PRESETS[options.stylePreset] : null;
+): Promise<string> {
+  const cfg = TREND_STYLES[options.trendStyle];
   const rgb = options.brandColorHex ? hexToRgb(options.brandColorHex) : null;
   const hasHookText = Boolean(options.hookText?.trim());
   const hasLogo = Boolean(options.logoBuffer);
 
-  if (!preset && !hasHookText && !hasLogo) return null;
-
-  let image = sharp(inputBuffer).rotate();
-
-  if (preset) {
-    image = image.modulate({
-      brightness: preset.brightness ?? 1,
-      saturation: preset.saturation ?? 1,
-    });
-    if (preset.linear) {
-      image = image.linear(preset.linear.a, preset.linear.b);
-    }
+  let image = sharp(inputBuffer)
+    .rotate()
+    .modulate({ brightness: cfg.brightness ?? 1, saturation: cfg.saturation ?? 1 });
+  if (cfg.linear) {
+    image = image.linear(cfg.linear.a, cfg.linear.b);
   }
 
   let buffer = await image.jpeg({ quality: 92 }).toBuffer();
   buffer = await cropTo3by4(buffer);
   const { width = 800, height = 800 } = await sharp(buffer).metadata();
 
-  // Blend the brand color in as a translucent color-grade layer rather than
-  // a flat duotone tint, so photos keep their own detail/variation instead
-  // of all looking like the same solid color.
-  if (preset?.colorBlend && rgb) {
-    const overlay = await sharp({
-      create: {
-        width,
-        height,
-        channels: 4,
-        background: { r: rgb.r, g: rgb.g, b: rgb.b, alpha: preset.colorOpacity ?? 0.18 },
-      },
+  for (const overlay of cfg.overlays ?? []) {
+    const overlayRgb = hexToRgb(overlay.color)!;
+    const layer = await sharp({
+      create: { width, height, channels: 4, background: { ...overlayRgb, alpha: overlay.opacity } },
     })
       .png()
       .toBuffer();
     buffer = await sharp(buffer)
-      .composite([{ input: overlay, blend: preset.colorBlend }])
+      .composite([{ input: layer, blend: overlay.blend }])
+      .jpeg({ quality: 92 })
+      .toBuffer();
+  }
+
+  if (cfg.grain) {
+    buffer = await applyGrainOverlay(buffer, width, height, cfg.grain);
+  }
+  if (cfg.glow) {
+    buffer = await applyGlowOverlay(buffer, width, height, cfg.glow);
+  }
+  if (cfg.vignette) {
+    buffer = await applyVignetteOverlay(buffer, width, height);
+  }
+
+  // Layer the brand color in as a light translucent wash on top of whichever
+  // trend style got picked, so brand identity still shows through no matter
+  // which of the 12 random looks is applied to a given variant.
+  if (rgb) {
+    const brandOverlay = await sharp({
+      create: { width, height, channels: 4, background: { ...rgb, alpha: 0.12 } },
+    })
+      .png()
+      .toBuffer();
+    buffer = await sharp(buffer)
+      .composite([{ input: brandOverlay, blend: "soft-light" }])
       .jpeg({ quality: 92 })
       .toBuffer();
   }

@@ -85,9 +85,10 @@ export function NewCampaignForm({ label }: { label: string }) {
     setPrizes([]);
   }
 
-  async function uploadFile(file: File): Promise<string | undefined> {
+  async function uploadFile(file: File, isLogo = false): Promise<string | undefined> {
     const formData = new FormData();
     formData.append("file", file);
+    if (isLogo) formData.append("type", "logo");
     const res = await fetch("/api/upload", { method: "POST", body: formData });
     if (!res.ok) return undefined;
     const data = await res.json();
@@ -115,7 +116,7 @@ export function NewCampaignForm({ label }: { label: string }) {
         )
       );
 
-      const logoPath = logoFile ? await uploadFile(logoFile) : undefined;
+      const logoPath = logoFile ? await uploadFile(logoFile, true) : undefined;
 
       const res = await fetch("/api/admin/campaigns", {
         method: "POST",

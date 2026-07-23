@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
-import { applyBrandStyle } from "@/lib/image-filter";
+import { applyBrandStyle, pickRandomTrendStyles } from "@/lib/image-filter";
 import { analyzePhotoForStyling, AiUnavailableError } from "@/lib/anthropic";
 import { readImageAsBase64 } from "@/lib/media";
 import { fetchAsBuffer } from "@/lib/cloudinary";
@@ -59,19 +59,23 @@ export async function POST(req: NextRequest) {
         ? await fetchAsBuffer(campaign.logoPath)
         : null;
 
-    const variants = (
-      await Promise.all(
-        plans.map((plan) =>
-          applyBrandStyle(inputBuffer, {
-            stylePreset: plan.stylePreset,
-            brandColorHex: campaign.brandColor,
-            hookText: plan.hookText,
-            logoBuffer,
-            logoPosition: plan.logoPosition,
-          }),
-        ),
-      )
-    ).filter((p): p is string => Boolean(p));
+    // Randomly assign a DISTINCT trend style per variant so the photos shown
+    // to the customer look genuinely different from each other, matching
+    // XHS's current viral look, instead of Claude's own style pick (which
+    // tended to converge on similar moods across the 3 options).
+    const trendStyles = pickRandomTrendStyles(plans.length);
+
+    const variants = await Promise.all(
+      plans.map((plan, i) =>
+        applyBrandStyle(inputBuffer, {
+          trendStyle: trendStyles[i],
+          brandColorHex: campaign.brandColor,
+          hookText: plan.hookText,
+          logoBuffer,
+          logoPosition: plan.logoPosition,
+        }),
+      ),
+    );
 
     if (variants.length === 0) {
       return NextResponse.json({ path: mediaPath, variants: [], filtered: false });

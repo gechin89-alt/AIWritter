@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "node:path";
 import { uploadBufferToCloudinary } from "@/lib/cloudinary";
+import { removeWhiteBackground } from "@/lib/image-filter";
 
 const ALLOWED_EXT = new Set([
   ".jpg",
@@ -34,9 +35,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  let buffer: Buffer = Buffer.from(await file.arrayBuffer());
+  const isLogo = formData.get("type") === "logo";
+
+  if (isLogo && !VIDEO_EXT.has(ext)) {
+    // Free alternative to Cloudinary's paid background-removal add-on — fades
+    // a flat white background to transparent so logos don't composite onto
+    // photos as an ugly white square.
+    buffer = await removeWhiteBackground(buffer);
+  }
+
   const url = await uploadBufferToCloudinary(buffer, {
     resourceType: VIDEO_EXT.has(ext) ? "video" : "image",
+    format: isLogo ? "png" : undefined,
   });
 
   return NextResponse.json({ path: url });

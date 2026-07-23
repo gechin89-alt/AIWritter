@@ -311,32 +311,34 @@ export async function generateFollowUpQuestions(input: {
   return buildTemplateQuestions(input.category);
 }
 
-export type PhotoStylePreset = "vivid" | "warm" | "moody" | "soft";
 export type LogoPosition = "bottom-left" | "bottom-right";
 
 export type PhotoStylingPlan = {
-  stylePreset: PhotoStylePreset;
   hookText: string;
   logoPosition: LogoPosition;
 };
 
-const PHOTO_STYLING_SYSTEM_PROMPT = `You are an art director styling a customer's photo for a brand's social media campaign post. Look at the photo and the brand context, then propose 3 DISTINCT styling options for the customer to choose between — vary the mood meaningfully across the 3 (don't make them near-duplicates). For each option decide three things:
+// The actual color-grade/mood (which of the 12 viral trend styles) is
+// assigned randomly by the caller, not by Claude — this guarantees real
+// visual variety across the 3 options instead of relying on the model to
+// naturally avoid picking similar moods. Claude only handles the parts that
+// benefit from actually looking at the photo: the hook text and logo corner.
+const PHOTO_STYLING_SYSTEM_PROMPT = `You are a social media copywriter looking at a customer's photo for a brand's campaign post. Propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide two things:
 
-1. stylePreset: which color-grade mood — one of "vivid" (punchy, saturated, energetic), "warm" (warm golden-hour glow, cozy), "moody" (darker, high-contrast, dramatic), "soft" (soft pastel, gentle, light). Pick presets that genuinely suit what's in the photo, and make the 3 options cover different moods rather than repeating one.
-2. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — under 12 characters if Chinese, under 6 words if English. Punchy and curiosity-driven, matching the brand's tone, not a generic slogan. Vary the angle/wording across the 3 options, not just the color.
-3. logoPosition: the hookText banner always sits at the top of the photo, so the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
+1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — under 12 characters if Chinese, under 6 words if English. Punchy and curiosity-driven, matching the brand's tone, not a generic slogan.
+2. logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
 
 Write hookText in the language given by "Output language" in the context, if present.
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-{"options":[{"stylePreset":"vivid","hookText":"...","logoPosition":"bottom-right"},{"stylePreset":"warm","hookText":"...","logoPosition":"bottom-left"},{"stylePreset":"soft","hookText":"...","logoPosition":"bottom-right"}]}`;
+{"options":[{"hookText":"...","logoPosition":"bottom-right"},{"hookText":"...","logoPosition":"bottom-left"},{"hookText":"...","logoPosition":"bottom-right"}]}`;
 
 function buildTemplateStylingPlans(locale?: "en" | "zh"): PhotoStylingPlan[] {
   const isZh = locale !== "en";
   return [
-    { stylePreset: "vivid", hookText: isZh ? "这个真的绝了" : "You need this", logoPosition: "bottom-right" },
-    { stylePreset: "warm", hookText: isZh ? "温柔小美好" : "Little moment", logoPosition: "bottom-left" },
-    { stylePreset: "soft", hookText: isZh ? "静静治愈中" : "So calming", logoPosition: "bottom-right" },
+    { hookText: isZh ? "这个真的绝了" : "You need this", logoPosition: "bottom-right" },
+    { hookText: isZh ? "温柔小美好" : "Little moment", logoPosition: "bottom-left" },
+    { hookText: isZh ? "静静治愈中" : "So calming", logoPosition: "bottom-right" },
   ];
 }
 
@@ -386,19 +388,16 @@ export async function analyzePhotoForStyling(input: {
   const raw = textBlock && "text" in textBlock ? textBlock.text : "";
 
   const parsed = parseModelJson(raw);
-  const validPresets: PhotoStylePreset[] = ["vivid", "warm", "moody", "soft"];
   const validPositions: LogoPosition[] = ["bottom-left", "bottom-right"];
   const rawOptions = Array.isArray(parsed?.options) ? (parsed.options as Record<string, unknown>[]) : [];
   const plans = rawOptions
     .filter(
       (o) =>
-        validPresets.includes(o.stylePreset as PhotoStylePreset) &&
         typeof o.hookText === "string" &&
         (o.hookText as string).trim() &&
         validPositions.includes(o.logoPosition as LogoPosition),
     )
     .map((o) => ({
-      stylePreset: o.stylePreset as PhotoStylePreset,
       hookText: (o.hookText as string).trim(),
       logoPosition: o.logoPosition as LogoPosition,
     }));

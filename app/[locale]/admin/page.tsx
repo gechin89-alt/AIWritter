@@ -16,6 +16,10 @@ import { NotifyUserButton } from "@/components/notify-user-button";
 import { UserQuotaEditor } from "@/components/user-quota-editor";
 import { effectivePostLimit } from "@/lib/quota";
 
+// Temporary admin photo-test button — hidden for now per request, code kept
+// intact so it can be switched back on later.
+const SHOW_ADMIN_PHOTO_TEST = false;
+
 export default async function AdminPage({
   params,
 }: {
@@ -234,19 +238,21 @@ export default async function AdminPage({
                           cancel: t("cancel"),
                         }}
                       />
-                      <CampaignPhotoTest
-                        campaignSlug={c.slug}
-                        label={t("testPhoto")}
-                        labels={{
-                          uploadCta: tc("uploadCta"),
-                          removePhoto: tc("removePhoto"),
-                          run: t("testPhotoRun"),
-                          running: t("testPhotoRunning"),
-                          result: t("testPhotoResult"),
-                          error: t("testPhotoError"),
-                          hint: t("testPhotoHint"),
-                        }}
-                      />
+                      {SHOW_ADMIN_PHOTO_TEST && (
+                        <CampaignPhotoTest
+                          campaignSlug={c.slug}
+                          label={t("testPhoto")}
+                          labels={{
+                            uploadCta: tc("uploadCta"),
+                            removePhoto: tc("removePhoto"),
+                            run: t("testPhotoRun"),
+                            running: t("testPhotoRunning"),
+                            result: t("testPhotoResult"),
+                            error: t("testPhotoError"),
+                            hint: t("testPhotoHint"),
+                          }}
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>
