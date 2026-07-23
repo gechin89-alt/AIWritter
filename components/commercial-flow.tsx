@@ -14,6 +14,14 @@ type ChatTurn = { role: "user" | "assistant"; content: string };
 // code kept intact so it can be switched back on later.
 const SHOW_BEAUTIFY_TEST_PANEL = false;
 
+// Loose on purpose: customers may be from different countries and type
+// spaces/dashes/a leading "+", so this only rejects obviously-wrong input
+// (letters, way too short/long) rather than enforcing one country's format.
+function isValidPhone(value: string): boolean {
+  const digits = value.replace(/[^0-9]/g, "");
+  return digits.length >= 8 && digits.length <= 15;
+}
+
 export function CommercialFlow({
   campaignSlug,
   questionMode = "FIXED",
@@ -215,6 +223,9 @@ export function CommercialFlow({
   }
 
   async function handleFetchQuestions() {
+    // Don't let a customer proceed with the un-styled raw photo just because
+    // they never tapped one of the 3 AI-styled options.
+    if (photoVariants.length > 0 && !styledPhotoPath) return;
     setLoadingQuestions(true);
     setError(null);
     try {
@@ -296,7 +307,10 @@ export function CommercialFlow({
   }
 
   async function handleGenerate() {
-    if (!name.trim() || !phone.trim()) return;
+    if (!name.trim() || !isValidPhone(phone)) return;
+    // Don't let a customer proceed with the un-styled raw photo just because
+    // they never tapped one of the 3 AI-styled options.
+    if (photoVariants.length > 0 && !styledPhotoPath) return;
     const resolvedMediaPath = await uploadMediaIfNeeded();
     await callGenerate([], resolvedMediaPath);
   }
@@ -578,6 +592,11 @@ export function CommercialFlow({
     );
   }
 
+  // Once 3 AI-styled variants come back, block progress until the customer
+  // taps one — otherwise they could answer all the questions and generate
+  // using the un-styled raw photo without ever seeing the styled options.
+  const photoSelectionPending = photoVariants.length > 0 && !styledPhotoPath;
+
   const mediaField = (
     <div>
       <MediaUploadField
@@ -753,32 +772,36 @@ export function CommercialFlow({
         <div className="mt-6 flex flex-col gap-5">
           {mediaField}
 
-          <div>
-            <label className="text-sm font-medium">{tc("category")}</label>
-            <div className="mt-2">
-              <ChoiceGroupWithOther
-                options={categoryOptions}
-                otherLabel={otherLabel}
-                otherPlaceholder={tc("otherPlaceholder")}
-                value={category}
-                onChange={setCategory}
-              />
-            </div>
-          </div>
+          {!photoSelectionPending && (
+            <>
+              <div>
+                <label className="text-sm font-medium">{tc("category")}</label>
+                <div className="mt-2">
+                  <ChoiceGroupWithOther
+                    options={categoryOptions}
+                    otherLabel={otherLabel}
+                    otherPlaceholder={tc("otherPlaceholder")}
+                    value={category}
+                    onChange={setCategory}
+                  />
+                </div>
+              </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button
-            onClick={handleFetchQuestions}
-            disabled={loadingQuestions || uploading || !category || aiUnavailable}
-            className={
-              aiUnavailable
-                ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-                : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-            }
-          >
-            {loadingQuestions ? tc("loadingQuestions") : tc("continueLabel")}
-          </button>
+              <button
+                onClick={handleFetchQuestions}
+                disabled={loadingQuestions || uploading || !category || aiUnavailable}
+                className={
+                  aiUnavailable
+                    ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+                    : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+                }
+              >
+                {loadingQuestions ? tc("loadingQuestions") : tc("continueLabel")}
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
@@ -830,101 +853,108 @@ export function CommercialFlow({
       <div className="mt-6 flex flex-col gap-5">
         {questionMode === "FIXED" && mediaField}
 
-        {questionMode === "FIXED" && (
+        {!photoSelectionPending && (
           <>
+            {questionMode === "FIXED" && (
+              <>
+                <div>
+                  <label className="text-sm font-medium">
+                    {identityQuestion || tc("identity")}
+                  </label>
+                  <div className="mt-2">
+                    <ChoiceGroupWithOther
+                      options={identityOptions}
+                      otherLabel={identityOtherLabel}
+                      otherPlaceholder={tc("otherPlaceholder")}
+                      value={identity}
+                      onChange={setIdentity}
+                      multiple={identityMultiSelect}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">
+                    {toneQuestion || tc("tone")}
+                  </label>
+                  <div className="mt-2">
+                    <ChoiceGroupWithOther
+                      options={toneOptions}
+                      otherLabel={toneOtherLabel}
+                      otherPlaceholder={tc("otherPlaceholder")}
+                      value={tone}
+                      onChange={setTone}
+                      multiple={toneMultiSelect}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">
+                    {styleQuestion || tc("style")}
+                  </label>
+                  <div className="mt-2">
+                    <ChoiceGroupWithOther
+                      options={styleOptions}
+                      otherLabel={styleOtherLabel}
+                      otherPlaceholder={tc("otherPlaceholder")}
+                      value={style}
+                      onChange={setStyle}
+                      multiple={styleMultiSelect}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             <div>
-              <label className="text-sm font-medium">
-                {identityQuestion || tc("identity")}
-              </label>
-              <div className="mt-2">
-                <ChoiceGroupWithOther
-                  options={identityOptions}
-                  otherLabel={identityOtherLabel}
-                  otherPlaceholder={tc("otherPlaceholder")}
-                  value={identity}
-                  onChange={setIdentity}
-                  multiple={identityMultiSelect}
-                />
-              </div>
+              <label className="text-sm font-medium">{tc("freeText")}</label>
+              <textarea
+                value={freeText}
+                onChange={(e) => setFreeText(e.target.value)}
+                placeholder={tc("freeTextPlaceholder")}
+                rows={3}
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              />
             </div>
 
             <div>
-              <label className="text-sm font-medium">
-                {toneQuestion || tc("tone")}
-              </label>
-              <div className="mt-2">
-                <ChoiceGroupWithOther
-                  options={toneOptions}
-                  otherLabel={toneOtherLabel}
-                  otherPlaceholder={tc("otherPlaceholder")}
-                  value={tone}
-                  onChange={setTone}
-                  multiple={toneMultiSelect}
+              <label className="text-sm font-medium">{tc("contactRequiredLabel")}</label>
+              <div className="mt-2 flex flex-col gap-3">
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={tc("namePlaceholder")}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
                 />
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onBlur={handleSaveDraft}
+                  placeholder={tc("phonePlaceholder")}
+                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                />
+                {phone.trim() && !isValidPhone(phone) && (
+                  <p className="text-xs text-red-600">{tc("invalidPhone")}</p>
+                )}
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium">
-                {styleQuestion || tc("style")}
-              </label>
-              <div className="mt-2">
-                <ChoiceGroupWithOther
-                  options={styleOptions}
-                  otherLabel={styleOtherLabel}
-                  otherPlaceholder={tc("otherPlaceholder")}
-                  value={style}
-                  onChange={setStyle}
-                  multiple={styleMultiSelect}
-                />
-              </div>
-            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <button
+              onClick={handleGenerate}
+              disabled={loading || uploading || aiUnavailable || !name.trim() || !isValidPhone(phone)}
+              className={
+                aiUnavailable
+                  ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+                  : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+              }
+            >
+              {loading || uploading ? t("generating") : t("generate")}
+            </button>
           </>
         )}
-
-        <div>
-          <label className="text-sm font-medium">{tc("freeText")}</label>
-          <textarea
-            value={freeText}
-            onChange={(e) => setFreeText(e.target.value)}
-            placeholder={tc("freeTextPlaceholder")}
-            rows={3}
-            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-          />
-        </div>
-
-        <div>
-          <label className="text-sm font-medium">{tc("contactRequiredLabel")}</label>
-          <div className="mt-2 flex flex-col gap-3">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={tc("namePlaceholder")}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-            />
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              onBlur={handleSaveDraft}
-              placeholder={tc("phonePlaceholder")}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-            />
-          </div>
-        </div>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <button
-          onClick={handleGenerate}
-          disabled={loading || uploading || aiUnavailable || !name.trim() || !phone.trim()}
-          className={
-            aiUnavailable
-              ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-              : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-          }
-        >
-          {loading || uploading ? t("generating") : t("generate")}
-        </button>
       </div>
     </div>
   );

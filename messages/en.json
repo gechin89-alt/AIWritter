@@ -122,6 +122,7 @@
     "linkPlaceholder": "Paste your Xiaohongshu post link here",
     "namePlaceholder": "Name",
     "phonePlaceholder": "Phone",
+    "invalidPhone": "Please enter a valid phone number",
     "contactRequiredLabel": "Enter your name and phone number to generate the post",
     "submitAsLabel": "Submitting as {name} ({phone})",
     "submit": "Submit for the lucky draw",
