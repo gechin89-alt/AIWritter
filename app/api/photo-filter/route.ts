@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
           hookText: plan.hookText,
           logoBuffer,
           logoPosition: plan.logoPosition,
+          textPosition: plan.textPosition,
         }),
       ),
     );

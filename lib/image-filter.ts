@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { createCanvas } from "@napi-rs/canvas";
-import type { LogoPosition } from "./anthropic";
+import type { LogoPosition, TextPosition } from "./anthropic";
 import { uploadBufferToCloudinary } from "./cloudinary";
 import { getCaptionFontFamily, type CaptionFont } from "./fonts";
 
@@ -40,15 +40,6 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   };
 }
 
-function lightenHex(hex: string, amount: number): string {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return hex;
-  const mix = (c: number) => Math.round(c + (255 - c) * amount);
-  return `#${[mix(rgb.r), mix(rgb.g), mix(rgb.b)]
-    .map((c) => c.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
 /**
  * Crops to XHS's preferred 3:4 (portrait) feed ratio using smart "attention"
  * cropping (keeps the most visually interesting region) rather than a naive
@@ -85,10 +76,45 @@ function escapeXml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function relativeLuminance(hex: string): number {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0.5;
+  return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+}
+
+// Height reserved for the caption overlay — shared with callers so they can
+// work out where to composite it (e.g. vertically centering a "middle"
+// placement) without duplicating the formula.
+export function getCaptionAreaHeight(height: number): number {
+  return Math.round(height * 0.22);
+}
+
+const LINE_BREAK_CHARS = new Set([" ", ",", "，", "、", "！", "!", "？", "?", "。", "-", "·"]);
+
+// No natural word boundaries in Chinese, so this looks for a break character
+// nearest the middle first, falling back to a straight midpoint split.
+function splitIntoTwoLines(text: string): [string, string] {
+  const mid = Math.floor(text.length / 2);
+  let bestIdx = -1;
+  let bestDist = Infinity;
+  for (let i = 1; i < text.length - 1; i++) {
+    if (LINE_BREAK_CHARS.has(text[i])) {
+      const dist = Math.abs(i - mid);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+  }
+  const cut = bestIdx === -1 ? mid : text[bestIdx] === " " ? bestIdx : bestIdx + 1;
+  return [text.slice(0, cut).trim(), text.slice(cut).trim()];
+}
+
 /**
  * Text sits directly on the photo — no solid banner box — with a gradient
- * fill and a soft drop shadow for legibility. Returns a transparent PNG
- * overlay sized to the full photo, positioned near the top.
+ * fill, a contrast outline, and a soft drop shadow for legibility. Wraps to
+ * a second line (shrinking to fit) if the text is too wide for one line.
+ * Returns a transparent PNG overlay sized to getCaptionAreaHeight(height).
  */
 async function renderCaptionOverlay(
   text: string,
@@ -97,27 +123,55 @@ async function renderCaptionOverlay(
   gradientColors: [string, string],
   captionFont: CaptionFont,
 ): Promise<Buffer> {
-  const areaHeight = Math.round(height * 0.22);
-  const fontSize = Math.round(areaHeight * 0.3);
+  const areaHeight = getCaptionAreaHeight(height);
+  const baseFontSize = Math.round(areaHeight * 0.3);
   const family = getCaptionFontFamily(captionFont);
 
   const canvas = createCanvas(width, areaHeight);
   const ctx = canvas.getContext("2d");
-  ctx.font = `${fontSize}px "${family}"`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+
+  const maxLineWidth = width * 0.86;
+  ctx.font = `${baseFontSize}px "${family}"`;
+  const fitsOneLine = ctx.measureText(text).width <= maxLineWidth;
+
+  const lines = fitsOneLine ? [text] : splitIntoTwoLines(text);
+  const fontSize = fitsOneLine ? baseFontSize : Math.round(baseFontSize * 0.74);
+  ctx.font = `${fontSize}px "${family}"`;
 
   const gradient = ctx.createLinearGradient(0, 0, width, 0);
   gradient.addColorStop(0, gradientColors[0]);
   gradient.addColorStop(1, gradientColors[1]);
 
-  // Canvas draws the shadow first, then the (opaque) fill on top — this is
-  // equivalent to the SVG feDropShadow this replaced.
-  ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetY = 3;
-  ctx.fillStyle = gradient;
-  ctx.fillText(text, width / 2, areaHeight / 2);
+  // The text needs to stay legible against whatever the underlying photo
+  // looks like, not just the gradient itself — a solid outline (color
+  // picked opposite the gradient's own brightness) does that far more
+  // reliably than a soft drop shadow alone, matching how real viral covers
+  // guarantee text pops on any background.
+  const avgLuminance = (relativeLuminance(gradientColors[0]) + relativeLuminance(gradientColors[1])) / 2;
+  const outlineColor = avgLuminance > 0.55 ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.9)";
+  const lineWidth = Math.max(2, Math.round(fontSize * 0.09));
+  const lineHeight = fontSize * 1.25;
+  const startY = areaHeight / 2 - (lineHeight * (lines.length - 1)) / 2;
+
+  for (let i = 0; i < lines.length; i++) {
+    const y = startY + i * lineHeight;
+
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 3;
+    ctx.lineWidth = lineWidth;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = outlineColor;
+    ctx.strokeText(lines[i], width / 2, y);
+
+    // Fill goes on top without its own shadow — the stroke pass above
+    // already provided the depth/contrast.
+    ctx.shadowColor = "transparent";
+    ctx.fillStyle = gradient;
+    ctx.fillText(lines[i], width / 2, y);
+  }
 
   return canvas.toBuffer("image/png");
 }
@@ -414,6 +468,7 @@ export async function applyBrandStyle(
     hookText?: string | null;
     logoBuffer?: Buffer | null;
     logoPosition?: LogoPosition | null;
+    textPosition?: TextPosition | null;
   },
 ): Promise<string> {
   const cfg = TREND_STYLES[options.trendStyle];
@@ -471,14 +526,23 @@ export async function applyBrandStyle(
   }
 
   if (hasHookText) {
-    const brandHex = options.brandColorHex ?? "#222222";
-    const gradientColors: [string, string] = [brandHex, lightenHex(brandHex, 0.45)];
-    const overlayBuffer = await renderCaptionOverlay(options.hookText!.trim(), width, height, gradientColors, cfg.fontKey);
+    // Uses the trend style's own caption gradient (not the brand color) so
+    // the 3 variants show genuinely different text colors, not just
+    // different fonts — brand identity is already carried by the soft-light
+    // wash above, applied to every variant regardless of style.
+    const overlayBuffer = await renderCaptionOverlay(options.hookText!.trim(), width, height, cfg.captionGradient, cfg.fontKey);
     // XHS feed thumbnails get their top ~15% covered by the app's own UI
-    // chrome, so real viral covers leave that strip blank and place text
-    // in the upper-center third instead of flush against the top edge.
+    // chrome, so "top" placement leaves that strip blank and sits in the
+    // upper-center third instead of flush against the top edge. "middle"
+    // vertically centers instead — Claude picks whichever has more open
+    // background in the specific photo.
+    const areaHeight = getCaptionAreaHeight(height);
+    const top =
+      options.textPosition === "middle"
+        ? Math.round((height - areaHeight) / 2)
+        : Math.round(height * 0.13);
     buffer = await sharp(buffer)
-      .composite([{ input: overlayBuffer, left: 0, top: Math.round(height * 0.13) }])
+      .composite([{ input: overlayBuffer, left: 0, top }])
       .jpeg({ quality: 92 })
       .toBuffer();
   }

@@ -312,10 +312,12 @@ export async function generateFollowUpQuestions(input: {
 }
 
 export type LogoPosition = "bottom-left" | "bottom-right";
+export type TextPosition = "top" | "middle";
 
 export type PhotoStylingPlan = {
   hookText: string;
   logoPosition: LogoPosition;
+  textPosition: TextPosition;
 };
 
 // The actual color-grade/mood (which of the 12 viral trend styles) is
@@ -323,22 +325,23 @@ export type PhotoStylingPlan = {
 // visual variety across the 3 options instead of relying on the model to
 // naturally avoid picking similar moods. Claude only handles the parts that
 // benefit from actually looking at the photo: the hook text and logo corner.
-const PHOTO_STYLING_SYSTEM_PROMPT = `You are a social media copywriter looking at a customer's photo for a brand's campaign post. Propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide two things:
+const PHOTO_STYLING_SYSTEM_PROMPT = `You are a social media copywriter looking at a customer's photo for a brand's campaign post. Propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording AND placement meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide three things:
 
-1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — under 12 characters if Chinese, under 6 words if English. Punchy and curiosity-driven, matching the brand's tone, not a generic slogan. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).
+1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Punchy and curiosity-driven, matching the brand's tone, not a generic slogan. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).
 2. logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
+3. textPosition: "top" (upper third — the default, safest choice) or "middle" (vertically centered) — pick whichever has more open/plain background for text in THIS photo, avoiding the main subject. Vary this across the 3 options rather than always picking the same one.
 
 Write hookText in the language given by "Output language" in the context, if present.
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-{"options":[{"hookText":"...","logoPosition":"bottom-right"},{"hookText":"...","logoPosition":"bottom-left"},{"hookText":"...","logoPosition":"bottom-right"}]}`;
+{"options":[{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"},{"hookText":"...","logoPosition":"bottom-left","textPosition":"middle"},{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"}]}`;
 
 function buildTemplateStylingPlans(locale?: "en" | "zh"): PhotoStylingPlan[] {
   const isZh = locale !== "en";
   return [
-    { hookText: isZh ? "这个真的绝了" : "You need this", logoPosition: "bottom-right" },
-    { hookText: isZh ? "温柔小美好" : "Little moment", logoPosition: "bottom-left" },
-    { hookText: isZh ? "静静治愈中" : "So calming", logoPosition: "bottom-right" },
+    { hookText: isZh ? "这个真的绝了" : "You need this", logoPosition: "bottom-right", textPosition: "top" },
+    { hookText: isZh ? "温柔小美好" : "Little moment", logoPosition: "bottom-left", textPosition: "middle" },
+    { hookText: isZh ? "静静治愈中" : "So calming", logoPosition: "bottom-right", textPosition: "top" },
   ];
 }
 
@@ -388,14 +391,15 @@ export async function analyzePhotoForStyling(input: {
   const raw = textBlock && "text" in textBlock ? textBlock.text : "";
 
   const parsed = parseModelJson(raw);
-  const validPositions: LogoPosition[] = ["bottom-left", "bottom-right"];
+  const validLogoPositions: LogoPosition[] = ["bottom-left", "bottom-right"];
+  const validTextPositions: TextPosition[] = ["top", "middle"];
   const rawOptions = Array.isArray(parsed?.options) ? (parsed.options as Record<string, unknown>[]) : [];
   const plans = rawOptions
     .filter(
       (o) =>
         typeof o.hookText === "string" &&
         (o.hookText as string).trim() &&
-        validPositions.includes(o.logoPosition as LogoPosition),
+        validLogoPositions.includes(o.logoPosition as LogoPosition),
     )
     .map((o) => ({
       // Defense-in-depth beyond the "no emoji" prompt instruction: hookText
@@ -407,6 +411,9 @@ export async function analyzePhotoForStyling(input: {
         .replace(/[‍️]/g, "")
         .trim(),
       logoPosition: o.logoPosition as LogoPosition,
+      textPosition: validTextPositions.includes(o.textPosition as TextPosition)
+        ? (o.textPosition as TextPosition)
+        : "top",
     }))
     .filter((o) => o.hookText.length > 0);
 
