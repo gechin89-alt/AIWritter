@@ -131,6 +131,43 @@ export function CommercialFlow({
   const [submitting, setSubmitting] = useState(false);
   const [entryCount, setEntryCount] = useState<number | null>(null);
 
+  // Remembers name/phone in this browser (opt-in) so a returning customer
+  // doesn't have to retype them on their next visit/campaign.
+  const [rememberContact, setRememberContact] = useState(false);
+  const [savedContact, setSavedContact] = useState<{ name: string; phone: string } | null>(null);
+  const [savedContactPromptDismissed, setSavedContactPromptDismissed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("xhswriter-contact");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.name && parsed?.phone) {
+        setSavedContact({ name: parsed.name, phone: parsed.phone });
+      }
+    } catch {
+      // Ignore — localStorage may be unavailable (private browsing) or the
+      // saved value malformed; falling back to a blank form is fine.
+    }
+  }, []);
+
+  function applySavedContact() {
+    if (!savedContact) return;
+    setName(savedContact.name);
+    setPhone(savedContact.phone);
+    setRememberContact(true);
+    setSavedContactPromptDismissed(true);
+  }
+
+  function persistContactIfRemembered() {
+    if (!rememberContact) return;
+    try {
+      window.localStorage.setItem("xhswriter-contact", JSON.stringify({ name, phone }));
+    } catch {
+      // Non-critical convenience feature — ignore storage failures.
+    }
+  }
+
   async function uploadMediaIfNeeded(): Promise<string | undefined> {
     if (!mediaFile) return undefined;
     if (mediaPath) return mediaPath;
@@ -311,6 +348,7 @@ export function CommercialFlow({
     // Don't let a customer proceed with the un-styled raw photo just because
     // they never tapped one of the 3 AI-styled options.
     if (photoVariants.length > 0 && !styledPhotoPath) return;
+    persistContactIfRemembered();
     const resolvedMediaPath = await uploadMediaIfNeeded();
     await callGenerate([], resolvedMediaPath);
   }
@@ -393,6 +431,7 @@ export function CommercialFlow({
       const data = await res.json();
       setEntryCount(data.entryCount ?? null);
       setSubmitted(true);
+      persistContactIfRemembered();
     } catch {
       setError(tc("errorGeneric"));
     } finally {
@@ -920,6 +959,27 @@ export function CommercialFlow({
 
             <div>
               <label className="text-sm font-medium">{tc("contactRequiredLabel")}</label>
+              {savedContact && !savedContactPromptDismissed && !name.trim() && !phone.trim() && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 p-3 text-xs">
+                  <span className="text-zinc-700 dark:text-zinc-300">
+                    {tc("useSavedContactPrompt", savedContact)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={applySavedContact}
+                    className="rounded-full bg-brand px-3 py-1 font-medium text-white hover:bg-brand-dark"
+                  >
+                    {tc("useSavedContactBtn")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSavedContactPromptDismissed(true)}
+                    className="rounded-full border border-zinc-300 px-3 py-1 font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-400"
+                  >
+                    {tc("reenterContactBtn")}
+                  </button>
+                </div>
+              )}
               <div className="mt-2 flex flex-col gap-3">
                 <input
                   value={name}
@@ -937,6 +997,14 @@ export function CommercialFlow({
                 {phone.trim() && !isValidPhone(phone) && (
                   <p className="text-xs text-red-600">{tc("invalidPhone")}</p>
                 )}
+                <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                  <input
+                    type="checkbox"
+                    checked={rememberContact}
+                    onChange={(e) => setRememberContact(e.target.checked)}
+                  />
+                  {tc("rememberContactLabel")}
+                </label>
               </div>
             </div>
 
