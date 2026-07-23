@@ -1,6 +1,8 @@
 import sharp from "sharp";
+import { createCanvas } from "@napi-rs/canvas";
 import type { LogoPosition } from "./anthropic";
 import { uploadBufferToCloudinary } from "./cloudinary";
+import { getCaptionFontFamily, type CaptionFont } from "./fonts";
 
 /**
  * Free alternative to Cloudinary's paid background-removal add-on: fades
@@ -93,25 +95,31 @@ async function renderCaptionOverlay(
   width: number,
   height: number,
   gradientColors: [string, string],
+  captionFont: CaptionFont,
 ): Promise<Buffer> {
   const areaHeight = Math.round(height * 0.22);
   const fontSize = Math.round(areaHeight * 0.3);
-  const svg = `<svg width="${width}" height="${areaHeight}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="tf" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="${gradientColors[0]}" />
-        <stop offset="100%" stop-color="${gradientColors[1]}" />
-      </linearGradient>
-      <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="black" flood-opacity="0.6" />
-      </filter>
-    </defs>
-    <text x="50%" y="50%" font-size="${fontSize}" font-family="Segoe UI Emoji, Microsoft YaHei, PingFang SC, SimHei, Arial, sans-serif"
-      fill="url(#tf)" filter="url(#sh)" text-anchor="middle" dominant-baseline="middle" font-weight="900" letter-spacing="1">${escapeXml(
-        text,
-      )}</text>
-  </svg>`;
-  return sharp(Buffer.from(svg)).png().toBuffer();
+  const family = getCaptionFontFamily(captionFont);
+
+  const canvas = createCanvas(width, areaHeight);
+  const ctx = canvas.getContext("2d");
+  ctx.font = `${fontSize}px "${family}"`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  const gradient = ctx.createLinearGradient(0, 0, width, 0);
+  gradient.addColorStop(0, gradientColors[0]);
+  gradient.addColorStop(1, gradientColors[1]);
+
+  // Canvas draws the shadow first, then the (opaque) fill on top — this is
+  // equivalent to the SVG feDropShadow this replaced.
+  ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetY = 3;
+  ctx.fillStyle = gradient;
+  ctx.fillText(text, width / 2, areaHeight / 2);
+
+  return canvas.toBuffer("image/png");
 }
 
 async function applyVignetteOverlay(buffer: Buffer, width: number, height: number): Promise<Buffer> {
@@ -173,6 +181,11 @@ type TrendConfig = {
   glow?: number;
   vignette?: boolean;
   captionGradient: [string, string];
+  // Which bundled caption font matches this style's mood: "bold" (thick,
+  // punchy — 2026 XHS covers lean heavily on bold/tiered text), "script"
+  // (soft handwritten/brush look, trending for lifestyle/quiet-luxury
+  // covers), or "playful" (rounded, casual/cute).
+  fontKey: CaptionFont;
 };
 
 const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
@@ -182,6 +195,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     overlays: [{ color: "#ffb347", blend: "soft-light", opacity: 0.28 }],
     glow: 0.18,
     captionGradient: ["#ffd166", "#ff7a3d"],
+    fontKey: "bold",
   },
   kodakPortra: {
     brightness: 1.03,
@@ -190,6 +204,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     overlays: [{ color: "#ffdca8", blend: "soft-light", opacity: 0.12 }],
     grain: 0.07,
     captionGradient: ["#f6c99a", "#e8896b"],
+    fontKey: "playful",
   },
   cinematic: {
     linear: { a: 1.15, b: -15 },
@@ -199,6 +214,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     ],
     vignette: true,
     captionGradient: ["#ff8a3d", "#2c5364"],
+    fontKey: "bold",
   },
   dreamySoft: {
     brightness: 1.12,
@@ -206,6 +222,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     overlays: [{ color: "#f5c6e0", blend: "soft-light", opacity: 0.1 }],
     glow: 0.28,
     captionGradient: ["#f6c6e0", "#c9b6f2"],
+    fontKey: "script",
   },
   quietLuxury: {
     brightness: 1.02,
@@ -213,6 +230,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     linear: { a: 0.95, b: 8 },
     overlays: [{ color: "#e9dcc9", blend: "soft-light", opacity: 0.1 }],
     captionGradient: ["#d8c8ab", "#a68f6b"],
+    fontKey: "script",
   },
   vintageFilm: {
     linear: { a: 0.88, b: 20 },
@@ -220,12 +238,14 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     grain: 0.13,
     vignette: true,
     captionGradient: ["#e0a458", "#8a5a2c"],
+    fontKey: "script",
   },
   earthTone: {
     brightness: 1.02,
     saturation: 0.82,
     overlays: [{ color: "#8a7654", blend: "soft-light", opacity: 0.22 }],
     captionGradient: ["#a68f6b", "#6b7a4f"],
+    fontKey: "playful",
   },
   brightClean: {
     brightness: 1.15,
@@ -233,6 +253,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     linear: { a: 1.05, b: -5 },
     overlays: [{ color: "#ffd9e6", blend: "soft-light", opacity: 0.08 }],
     captionGradient: ["#ff9fc0", "#ffd166"],
+    fontKey: "bold",
   },
   tiktokViral: {
     brightness: 1.1,
@@ -240,6 +261,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     linear: { a: 1.1, b: -8 },
     overlays: [{ color: "#ff5c8a", blend: "soft-light", opacity: 0.16 }],
     captionGradient: ["#ff5c8a", "#ffd166"],
+    fontKey: "bold",
   },
   mochaBrown: {
     brightness: 0.95,
@@ -247,6 +269,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     linear: { a: 1.08, b: -10 },
     overlays: [{ color: "#4a2c17", blend: "multiply", opacity: 0.22 }],
     captionGradient: ["#c9a578", "#6b4423"],
+    fontKey: "script",
   },
   creamyBeige: {
     brightness: 1.12,
@@ -254,6 +277,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     linear: { a: 0.96, b: 10 },
     overlays: [{ color: "#f3e5d0", blend: "soft-light", opacity: 0.22 }],
     captionGradient: ["#f3e5d0", "#d9c2a0"],
+    fontKey: "playful",
   },
   forestGreen: {
     brightness: 0.92,
@@ -262,6 +286,7 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
     overlays: [{ color: "#1f3d2b", blend: "multiply", opacity: 0.22 }],
     vignette: true,
     captionGradient: ["#4a7a5c", "#1f3d2b"],
+    fontKey: "playful",
   },
 };
 
@@ -357,7 +382,7 @@ export async function applyBeautifyOnly(
         .jpeg({ quality: 92 })
         .toBuffer();
     } else {
-      const overlayBuffer = await renderCaptionOverlay(captionText, width, height, cfg.captionGradient);
+      const overlayBuffer = await renderCaptionOverlay(captionText, width, height, cfg.captionGradient, cfg.fontKey);
       // XHS feed thumbnails get their top ~15% covered by the app's own UI
       // chrome, so real viral covers leave that strip blank and place text
       // in the upper-center third instead of flush against the top edge.
@@ -448,7 +473,7 @@ export async function applyBrandStyle(
   if (hasHookText) {
     const brandHex = options.brandColorHex ?? "#222222";
     const gradientColors: [string, string] = [brandHex, lightenHex(brandHex, 0.45)];
-    const overlayBuffer = await renderCaptionOverlay(options.hookText!.trim(), width, height, gradientColors);
+    const overlayBuffer = await renderCaptionOverlay(options.hookText!.trim(), width, height, gradientColors, cfg.fontKey);
     // XHS feed thumbnails get their top ~15% covered by the app's own UI
     // chrome, so real viral covers leave that strip blank and place text
     // in the upper-center third instead of flush against the top edge.

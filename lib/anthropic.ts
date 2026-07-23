@@ -325,7 +325,7 @@ export type PhotoStylingPlan = {
 // benefit from actually looking at the photo: the hook text and logo corner.
 const PHOTO_STYLING_SYSTEM_PROMPT = `You are a social media copywriter looking at a customer's photo for a brand's campaign post. Propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide two things:
 
-1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — under 12 characters if Chinese, under 6 words if English. Punchy and curiosity-driven, matching the brand's tone, not a generic slogan.
+1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — under 12 characters if Chinese, under 6 words if English. Punchy and curiosity-driven, matching the brand's tone, not a generic slogan. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).
 2. logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
 
 Write hookText in the language given by "Output language" in the context, if present.
@@ -398,9 +398,17 @@ export async function analyzePhotoForStyling(input: {
         validPositions.includes(o.logoPosition as LogoPosition),
     )
     .map((o) => ({
-      hookText: (o.hookText as string).trim(),
+      // Defense-in-depth beyond the "no emoji" prompt instruction: hookText
+      // renders as a raster overlay via a bundled font with no emoji
+      // glyphs, so a stray emoji here would show as a broken tofu box.
+      hookText: (o.hookText as string)
+        .trim()
+        .replace(/\p{Extended_Pictographic}/gu, "")
+        .replace(/[‍️]/g, "")
+        .trim(),
       logoPosition: o.logoPosition as LogoPosition,
-    }));
+    }))
+    .filter((o) => o.hookText.length > 0);
 
   return plans.length > 0 ? plans.slice(0, 3) : buildTemplateStylingPlans(input.locale);
 }
