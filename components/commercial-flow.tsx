@@ -131,6 +131,11 @@ export function CommercialFlow({
   const [submitting, setSubmitting] = useState(false);
   const [entryCount, setEntryCount] = useState<number | null>(null);
 
+  // FIXED-mode shows the photo step alone first, then the question form —
+  // matching AI_ADAPTIVE mode's existing two-step shape (photo+category,
+  // then follow-up questions), instead of dumping everything on one screen.
+  const [photoStepConfirmed, setPhotoStepConfirmed] = useState(false);
+
   // Remembers name/phone in this browser (opt-in) so a returning customer
   // doesn't have to retype them on their next visit/campaign.
   const [rememberContact, setRememberContact] = useState(false);
@@ -466,6 +471,7 @@ export function CommercialFlow({
     setStyledPhotoPath(null);
     setPhotoVariants([]);
     setStylingPhoto(false);
+    setPhotoStepConfirmed(false);
     setTitleOptions([]);
     setChosenTitle(null);
     setIdentity("");
@@ -886,12 +892,32 @@ export function CommercialFlow({
     );
   }
 
+  if (questionMode === "FIXED" && !photoStepConfirmed) {
+    return (
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
+        <div className="mt-6 flex flex-col gap-5">
+          {mediaField}
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <button
+            type="button"
+            onClick={() => setPhotoStepConfirmed(true)}
+            disabled={photoSelectionPending || stylingPhoto || uploading}
+            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          >
+            {tc("continueLabel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
       <div className="mt-6 flex flex-col gap-5">
-        {questionMode === "FIXED" && mediaField}
-
         {!photoSelectionPending && (
           <>
             {questionMode === "FIXED" && (
