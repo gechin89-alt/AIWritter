@@ -42,12 +42,15 @@ export function NewCampaignForm({ label }: { label: string }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Trimming leading/trailing dashes happens only at submit time (see
+  // handleSubmit) — doing it on every keystroke here would strip a dash the
+  // instant you type it, since it's briefly the last character typed,
+  // making it impossible to type a dash at all while typing left-to-right.
   function sanitizeSlug(value: string): string {
     return value
       .toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "");
+      .replace(/-+/g, "-");
   }
 
   function cleanOptions(options: string[]): string[] | undefined {
@@ -116,7 +119,7 @@ export function NewCampaignForm({ label }: { label: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          slug,
+          slug: slug.replace(/^-+|-+$/g, ""),
           name,
           brandLink,
           brandColor: enableBrandColor ? brandColor : undefined,
