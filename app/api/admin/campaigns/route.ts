@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     brandLink,
     brandColor,
     logoPath,
+    logoWatermarkEnabled,
     productDescription,
     prizeInfo,
     termsText,
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
     brandLink: string;
     brandColor?: string;
     logoPath?: string;
+    logoWatermarkEnabled?: boolean;
     productDescription?: string;
     prizeInfo?: string;
     termsText?: string;
@@ -58,6 +60,7 @@ export async function POST(req: NextRequest) {
       name: string;
       description?: string;
       imagePath?: string;
+      qty?: number;
     }[];
   } = await req.json();
 
@@ -81,6 +84,7 @@ export async function POST(req: NextRequest) {
       brandLink,
       brandColor: validBrandColor,
       logoPath: logoPath || null,
+      logoWatermarkEnabled: logoWatermarkEnabled ?? true,
       productDescription: productDescription || null,
       prizeInfo: prizeInfo ?? "",
       termsText: termsText ?? "",
@@ -104,6 +108,7 @@ export async function POST(req: NextRequest) {
               name: p.name,
               description: p.description ?? null,
               imagePath: p.imagePath ?? null,
+              qty: Number.isInteger(p.qty) ? p.qty : null,
             })),
           }
         : undefined,

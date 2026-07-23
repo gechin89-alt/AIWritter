@@ -187,6 +187,7 @@
     "formLogoLabel": "Brand logo (optional — added as a watermark badge on customer photos)",
     "formLogoUploadCta": "Click to upload a logo",
     "formLogoRemove": "Remove logo",
+    "formLogoWatermarkToggle": "Overlay logo watermark on customer photos",
     "formPrizeInfoPlaceholder": "Prize overview (short summary, optional)",
     "formTermsPlaceholder": "Terms & conditions",
     "formPrizesHint": "Prizes (e.g. 1st, 2nd, 3rd place) — name, description, and photo per prize. Optional.",

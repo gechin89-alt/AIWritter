@@ -13,6 +13,7 @@ export type CampaignEditInitial = {
   brandLink: string;
   brandColor: string | null;
   logoPath: string | null;
+  logoWatermarkEnabled: boolean;
   productDescription: string;
   prizeInfo: string;
   termsText: string;
@@ -50,6 +51,7 @@ export function CampaignEditForm({
   const [brandColor, setBrandColor] = useState(initial.brandColor ?? "#ff2442");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [existingLogoPath, setExistingLogoPath] = useState(initial.logoPath);
+  const [logoWatermarkEnabled, setLogoWatermarkEnabled] = useState(initial.logoWatermarkEnabled);
   const [productDescription, setProductDescription] = useState(
     initial.productDescription,
   );
@@ -112,6 +114,7 @@ export function CampaignEditForm({
           brandLink,
           brandColor: enableBrandColor ? brandColor : null,
           logoPath,
+          logoWatermarkEnabled,
           productDescription,
           prizeInfo,
           termsText,
@@ -191,6 +194,14 @@ export function CampaignEditForm({
             existingUrl={existingLogoPath}
             onRemoveExisting={() => setExistingLogoPath(null)}
           />
+          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={logoWatermarkEnabled}
+              onChange={(e) => setLogoWatermarkEnabled(e.target.checked)}
+            />
+            {t("formLogoWatermarkToggle")}
+          </label>
           <textarea
             value={productDescription}
             onChange={(e) => setProductDescription(e.target.value)}

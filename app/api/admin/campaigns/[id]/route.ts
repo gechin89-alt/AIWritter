@@ -26,6 +26,7 @@ export async function PATCH(
     brandLink?: string;
     brandColor?: string;
     logoPath?: string | null;
+    logoWatermarkEnabled?: boolean;
     productDescription?: string;
     prizeInfo?: string;
     termsText?: string;
@@ -54,6 +55,8 @@ export async function PATCH(
         ? body.brandColor.trim()
         : null;
   if (body.logoPath !== undefined) data.logoPath = body.logoPath || null;
+  if (body.logoWatermarkEnabled !== undefined)
+    data.logoWatermarkEnabled = Boolean(body.logoWatermarkEnabled);
   if (body.productDescription !== undefined)
     data.productDescription = body.productDescription || null;
   if (body.prizeInfo !== undefined) data.prizeInfo = body.prizeInfo;

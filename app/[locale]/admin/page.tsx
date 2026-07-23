@@ -96,6 +96,7 @@ export default async function AdminPage({
         id: p.id,
         name: p.name,
         imagePath: p.imagePath,
+        qty: p.qty,
       })),
     }));
 
@@ -188,6 +189,7 @@ export default async function AdminPage({
                           brandLink: c.brandLink,
                           brandColor: c.brandColor,
                           logoPath: c.logoPath,
+                          logoWatermarkEnabled: c.logoWatermarkEnabled,
                           productDescription: c.productDescription ?? "",
                           prizeInfo: c.prizeInfo,
                           termsText: c.termsText,

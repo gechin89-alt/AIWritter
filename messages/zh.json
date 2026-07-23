@@ -172,6 +172,7 @@
     "formLogoLabel": "品牌 Logo（可选——会以水印角标形式叠加到客户照片上）",
     "formLogoUploadCta": "点击上传 Logo",
     "formLogoRemove": "移除 Logo",
+    "formLogoWatermarkToggle": "在客户照片上叠加 Logo 水印角标",
     "formPrizeInfoPlaceholder": "奖品概述（简短说明，可选）",
     "formTermsPlaceholder": "条款与条件",
     "formPrizesHint": "奖品（例如：第一奖、第二奖、第三奖）— 每个奖品可填写名称、说明和照片。可选。",

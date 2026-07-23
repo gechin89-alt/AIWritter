@@ -25,6 +25,7 @@ export function CampaignViewButton({
     name: string;
     description: string | null;
     imagePath: string | null;
+    qty?: number | null;
   }[];
   termsText: string;
   prizesTitle: string;

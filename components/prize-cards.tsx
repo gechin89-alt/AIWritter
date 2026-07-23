@@ -9,6 +9,7 @@ export function PrizeCards({
     name: string;
     description: string | null;
     imagePath: string | null;
+    qty?: number | null;
   }[];
   title: string;
 }) {
@@ -25,8 +26,8 @@ export function PrizeCards({
             key={p.id}
             className="flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
           >
-            {p.imagePath ? (
-              <div className="relative h-24 w-full">
+            <div className="relative h-24 w-full">
+              {p.imagePath ? (
                 <Image
                   src={p.imagePath}
                   alt={p.name}
@@ -34,12 +35,17 @@ export function PrizeCards({
                   sizes="150px"
                   className="object-cover"
                 />
-              </div>
-            ) : (
-              <div className="flex h-24 w-full items-center justify-center bg-gradient-to-br from-brand/10 to-accent/10 text-2xl">
-                🏆
-              </div>
-            )}
+              ) : (
+                <div className="flex h-24 w-full items-center justify-center bg-gradient-to-br from-brand/10 to-accent/10 text-2xl">
+                  🏆
+                </div>
+              )}
+              {Boolean(p.qty) && (
+                <span className="absolute right-1 top-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  ×{p.qty}
+                </span>
+              )}
+            </div>
             <div className="p-2">
               <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-50">
                 {p.name}

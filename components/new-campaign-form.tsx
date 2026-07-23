@@ -18,6 +18,7 @@ export function NewCampaignForm({ label }: { label: string }) {
   const [enableBrandColor, setEnableBrandColor] = useState(false);
   const [brandColor, setBrandColor] = useState("#ff2442");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoWatermarkEnabled, setLogoWatermarkEnabled] = useState(true);
   const [productDescription, setProductDescription] = useState("");
   const [prizeInfo, setPrizeInfo] = useState("");
   const [termsText, setTermsText] = useState("");
@@ -109,6 +110,7 @@ export function NewCampaignForm({ label }: { label: string }) {
               imagePath: p.imageFile
                 ? await uploadFile(p.imageFile)
                 : undefined,
+              qty: p.qty.trim() ? Number(p.qty) : undefined,
             })),
         )
       );
@@ -124,6 +126,7 @@ export function NewCampaignForm({ label }: { label: string }) {
           brandLink,
           brandColor: enableBrandColor ? brandColor : undefined,
           logoPath,
+          logoWatermarkEnabled,
           productDescription,
           prizeInfo,
           termsText,
@@ -209,6 +212,14 @@ export function NewCampaignForm({ label }: { label: string }) {
             uploadLabel={t("formLogoUploadCta")}
             removeLabel={t("formLogoRemove")}
           />
+          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={logoWatermarkEnabled}
+              onChange={(e) => setLogoWatermarkEnabled(e.target.checked)}
+            />
+            {t("formLogoWatermarkToggle")}
+          </label>
           <textarea
             value={productDescription}
             onChange={(e) => setProductDescription(e.target.value)}

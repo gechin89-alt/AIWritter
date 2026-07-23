@@ -21,7 +21,13 @@ export async function POST(req: NextRequest) {
   // trust client-supplied styling, same pattern as brand name/description.
   const campaign = await prisma.campaign.findUnique({
     where: { slug: campaignSlug },
-    select: { brandColor: true, logoPath: true, name: true, productDescription: true },
+    select: {
+      brandColor: true,
+      logoPath: true,
+      logoWatermarkEnabled: true,
+      name: true,
+      productDescription: true,
+    },
   });
 
   if (!campaign?.brandColor && !campaign?.logoPath) {
@@ -48,7 +54,10 @@ export async function POST(req: NextRequest) {
     });
 
     const inputBuffer = Buffer.from(image.imageBase64, "base64");
-    const logoBuffer = campaign.logoPath ? await fetchAsBuffer(campaign.logoPath) : null;
+    const logoBuffer =
+      campaign.logoPath && campaign.logoWatermarkEnabled
+        ? await fetchAsBuffer(campaign.logoPath)
+        : null;
 
     const variants = (
       await Promise.all(

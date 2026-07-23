@@ -67,6 +67,7 @@ model Campaign {
   brandLink       String
   brandColor      String?
   logoPath        String?
+  logoWatermarkEnabled Boolean @default(true)
   productDescription String?
   prizeInfo       String
   termsText       String

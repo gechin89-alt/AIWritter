@@ -10,7 +10,7 @@ export function CampaignDirectoryList({
     slug: string;
     name: string;
     prizeInfo: string;
-    prizes: { id: string; name: string; imagePath: string | null }[];
+    prizes: { id: string; name: string; imagePath: string | null; qty?: number | null }[];
   }[];
   joinLabel: string;
   emptyLabel: string;
@@ -40,19 +40,26 @@ export function CampaignDirectoryList({
                   key={p.id}
                   className="flex w-16 shrink-0 flex-col items-center text-center"
                 >
-                  {p.imagePath ? (
-                    <Image
-                      src={p.imagePath}
-                      alt={p.name}
-                      width={56}
-                      height={56}
-                      className="h-14 w-14 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-brand/10 to-accent/10 text-xl">
-                      🏆
-                    </div>
-                  )}
+                  <div className="relative">
+                    {p.imagePath ? (
+                      <Image
+                        src={p.imagePath}
+                        alt={p.name}
+                        width={56}
+                        height={56}
+                        className="h-14 w-14 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-gradient-to-br from-brand/10 to-accent/10 text-xl">
+                        🏆
+                      </div>
+                    )}
+                    {Boolean(p.qty) && (
+                      <span className="absolute -right-1 -top-1 rounded-full bg-black/70 px-1 py-0.5 text-[9px] font-semibold text-white">
+                        ×{p.qty}
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-1 line-clamp-2 text-[10px] leading-tight text-zinc-600 dark:text-zinc-400">
                     {p.name}
                   </p>
