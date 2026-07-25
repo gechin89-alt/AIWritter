@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { ChoiceGroupWithOther } from "./choice-group-with-other";
 import { MediaUploadField } from "./media-upload-field";
 import { Modal } from "./modal";
+import { toDownloadUrl } from "@/lib/download-url";
 
 type FollowUpQuestion = { question: string; options: string[] };
 type ChatTurn = { role: "user" | "assistant"; content: string };
@@ -465,7 +466,7 @@ export function CommercialFlow({
     const photoPath = styledPhotoPath ?? mediaPath;
     if (photoPath) {
       const a = document.createElement("a");
-      a.href = photoPath;
+      a.href = toDownloadUrl(photoPath);
       a.download = "";
       document.body.appendChild(a);
       a.click();
@@ -611,7 +612,7 @@ export function CommercialFlow({
             />
             {styledPhotoPath && (
               <a
-                href={styledPhotoPath}
+                href={toDownloadUrl(styledPhotoPath)}
                 download
                 className="text-xs font-medium text-brand underline"
               >
@@ -839,7 +840,7 @@ export function CommercialFlow({
               {tc("styledPhotoReady")}
             </p>
             <a
-              href={styledPhotoPath}
+              href={toDownloadUrl(styledPhotoPath)}
               download
               className="text-xs font-medium text-brand underline"
             >

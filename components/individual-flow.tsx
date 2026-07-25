@@ -8,6 +8,7 @@ import { ChoiceGroup } from "./choice-group";
 import { MediaUploadField } from "./media-upload-field";
 import { BrandProfileEditor } from "./brand-profile-editor";
 import { Modal } from "./modal";
+import { toDownloadUrl } from "@/lib/download-url";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 type TextMode = "auto" | "custom" | "none";
@@ -486,7 +487,7 @@ export function IndividualFlow({
               />
               <div className="flex flex-col gap-1">
                 <p className="text-xs text-zinc-600 dark:text-zinc-400">{t("styledPhotoReady")}</p>
-                <a href={styledPhotoPath} download className="text-xs font-medium text-brand underline">
+                <a href={toDownloadUrl(styledPhotoPath)} download className="text-xs font-medium text-brand underline">
                   {t("downloadStyledPhoto")}
                 </a>
               </div>
