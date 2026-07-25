@@ -329,7 +329,7 @@ const PHOTO_STYLING_SYSTEM_PROMPT = `You are a social media copywriter looking a
 
 1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Punchy and curiosity-driven, matching the brand's tone, not a generic slogan. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).
 2. logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
-3. textPosition: "top" (upper third — the default, safest choice) or "middle" (vertically centered) — pick whichever has more open/plain background for text in THIS photo, avoiding the main subject. Vary this across the 3 options rather than always picking the same one.
+3. textPosition: "top" (upper third — the default, safest choice) or "middle" (vertically centered). First check: is there a face anywhere in the photo? If so, this is the deciding factor — pick whichever of "top"/"middle" does NOT overlap the face (a face matters far more than generic clutter). If there's no face, just pick whichever region has more open/plain background. If a face is large enough to overlap both regions, pick whichever overlaps it least. Vary this across the 3 options where the photo allows it, rather than always picking the same one.
 
 Write hookText in the language given by "Output language" in the context, if present.
 
