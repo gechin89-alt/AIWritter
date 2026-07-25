@@ -33,9 +33,12 @@ export function IndividualFlow({
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPath, setMediaPath] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const isImage = mediaFile ? mediaFile.type.startsWith("image/") : false;
+  const isVideo = mediaFile ? mediaFile.type.startsWith("video/") : false;
 
-  const [textModeChoice, setTextModeChoice] = useState<TextMode | null>(null);
+  // Defaults to "auto" so uploading a photo with no extra taps just works
+  // (matches the pre-text-mode behavior); removing the photo resets this so
+  // the choice is asked fresh for whatever gets uploaded next.
+  const [textModeChoice, setTextModeChoice] = useState<TextMode>("auto");
   const [customText, setCustomText] = useState("");
   const [stylingPhoto, setStylingPhoto] = useState(false);
   const [styledPhotoPath, setStyledPhotoPath] = useState<string | null>(null);
@@ -60,13 +63,11 @@ export function IndividualFlow({
   const [error, setError] = useState<string | null>(null);
   const [aiUnavailable, setAiUnavailable] = useState(false);
 
-  async function uploadMediaIfNeeded(): Promise<string | undefined> {
-    if (!mediaFile) return undefined;
-    if (mediaPath) return mediaPath;
+  async function uploadFile(file: File): Promise<string | undefined> {
     setUploading(true);
     try {
       const formData = new FormData();
-      formData.append("file", mediaFile);
+      formData.append("file", file);
       const res = await fetch("/api/upload", {
         method: "POST",
         body: formData,
@@ -80,22 +81,38 @@ export function IndividualFlow({
     }
   }
 
+  async function uploadMediaIfNeeded(): Promise<string | undefined> {
+    if (!mediaFile) return undefined;
+    if (mediaPath) return mediaPath;
+    return uploadFile(mediaFile);
+  }
+
   function handleMediaSelected(file: File | null) {
     setMediaFile(file);
     setMediaPath(null);
-    setTextModeChoice(null);
-    setCustomText("");
     setStyledPhotoPath(null);
     setPhotoVariants([]);
+    if (!file) {
+      // Removing the photo resets the text-mode question so it's asked
+      // fresh for whatever gets uploaded next.
+      setTextModeChoice("auto");
+      setCustomText("");
+      return;
+    }
+    // Defaults to "auto", so a fresh upload just works immediately unless
+    // the customer had already picked "custom" and typed something.
+    if (file.type.startsWith("image/") && (textModeChoice !== "custom" || customText.trim())) {
+      runPhotoStyling(file, textModeChoice, customText);
+    }
   }
 
-  async function runPhotoStyling(mode: TextMode, text?: string) {
+  async function runPhotoStyling(file: File, mode: TextMode, text?: string) {
     setTextModeChoice(mode);
     setStyledPhotoPath(null);
     setPhotoVariants([]);
     setStylingPhoto(true);
     try {
-      const resolvedPath = await uploadMediaIfNeeded();
+      const resolvedPath = mediaPath ?? (await uploadFile(file));
       if (!resolvedPath) return;
       const res = await fetch("/api/photo-filter", {
         method: "POST",
@@ -192,7 +209,6 @@ export function IndividualFlow({
   }
 
   if (result) {
-    const isVideo = mediaFile?.type.startsWith("video/") ?? false;
     const finalPhotoPath = styledPhotoPath ?? mediaPath;
     return (
       <div className="w-full max-w-lg">
@@ -295,22 +311,16 @@ export function IndividualFlow({
         </p>
 
         <div className="mt-6 flex flex-col gap-5">
-          <MediaUploadField
-            label={t("stepMedia")}
-            file={mediaFile}
-            onChange={handleMediaSelected}
-            accept="image/*,video/*"
-            uploadLabel={t("uploadCta")}
-            removeLabel={t("removePhoto")}
-          />
-
-          {isImage && !styledPhotoPath && !stylingPhoto && (
+          {!isVideo && !styledPhotoPath && !stylingPhoto && (
             <div>
               <p className="text-xs text-zinc-600 dark:text-zinc-400">{t("chooseTextMode")}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => runPhotoStyling("auto")}
+                  onClick={() => {
+                    setTextModeChoice("auto");
+                    if (mediaFile) runPhotoStyling(mediaFile, "auto");
+                  }}
                   className={
                     textModeChoice === "auto"
                       ? "rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white"
@@ -332,7 +342,10 @@ export function IndividualFlow({
                 </button>
                 <button
                   type="button"
-                  onClick={() => runPhotoStyling("none")}
+                  onClick={() => {
+                    setTextModeChoice("none");
+                    if (mediaFile) runPhotoStyling(mediaFile, "none");
+                  }}
                   className={
                     textModeChoice === "none"
                       ? "rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white"
@@ -351,18 +364,29 @@ export function IndividualFlow({
                     maxLength={30}
                     className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
                   />
-                  <button
-                    type="button"
-                    onClick={() => runPhotoStyling("custom", customText)}
-                    disabled={!customText.trim()}
-                    className="rounded-full bg-brand px-4 py-2 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-                  >
-                    {t("confirmTextMode")}
-                  </button>
+                  {mediaFile && (
+                    <button
+                      type="button"
+                      onClick={() => runPhotoStyling(mediaFile, "custom", customText)}
+                      disabled={!customText.trim()}
+                      className="rounded-full bg-brand px-4 py-2 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+                    >
+                      {t("confirmTextMode")}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           )}
+
+          <MediaUploadField
+            label={t("stepMedia")}
+            file={mediaFile}
+            onChange={handleMediaSelected}
+            accept="image/*,video/*"
+            uploadLabel={t("uploadCta")}
+            removeLabel={t("removePhoto")}
+          />
 
           {stylingPhoto && (
             <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("stylingPhoto")}</p>
