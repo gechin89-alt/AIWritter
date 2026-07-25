@@ -12,6 +12,7 @@ export function MediaUploadField({
   removeLabel,
   existingUrl,
   onRemoveExisting,
+  disableRemove = false,
 }: {
   label: string;
   file: File | null;
@@ -22,6 +23,8 @@ export function MediaUploadField({
   /** An already-uploaded image to show when no new file has been picked yet (edit mode). */
   existingUrl?: string | null;
   onRemoveExisting?: () => void;
+  /** Hides the remove (✕) button — e.g. while AI processing is in flight, so the customer can't yank the photo out mid-request. */
+  disableRemove?: boolean;
 }) {
   const previewUrl = useMemo(
     () => (file ? URL.createObjectURL(file) : null),
@@ -55,14 +58,16 @@ export function MediaUploadField({
                 className="h-40 w-40 rounded-lg border border-zinc-200 object-cover dark:border-zinc-800"
               />
             )}
-            <button
-              type="button"
-              onClick={() => onChange(null)}
-              aria-label={removeLabel}
-              className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900/80 text-xs text-white hover:bg-zinc-900"
-            >
-              ✕
-            </button>
+            {!disableRemove && (
+              <button
+                type="button"
+                onClick={() => onChange(null)}
+                aria-label={removeLabel}
+                className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-900/80 text-xs text-white hover:bg-zinc-900"
+              >
+                ✕
+              </button>
+            )}
           </div>
         ) : existingUrl ? (
           <div className="relative inline-block">

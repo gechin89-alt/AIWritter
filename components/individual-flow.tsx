@@ -386,6 +386,7 @@ export function IndividualFlow({
             accept="image/*,video/*"
             uploadLabel={t("uploadCta")}
             removeLabel={t("removePhoto")}
+            disableRemove={stylingPhoto}
           />
 
           {stylingPhoto && (

@@ -75,7 +75,7 @@ Rules:
   - Include an appropriate sponsorship disclosure per platform norms (e.g. "#合作" / "#广告" for XHS, "#ad" / "Paid partnership" for Instagram) — do not try to hide that it's sponsored.
   - If a "Product/brand description" is given in the context, use it to understand what the brand actually sells and connect it naturally to the photo/topic. If no product description is given AND the photo/topic has no plausible connection to the brand name alone, do NOT invent a connection — ask a clarifying question instead (see below).
 - If the user's free-text input and answers are too vague or contradictory to write a good post (e.g. no topic at all), do NOT guess — instead ask ONE short clarifying question.
-- If the user's free-text input is a complaint or negative about their own experience, do not reproduce the negativity in the post. Reframe it constructively: acknowledge the real feeling briefly, then pivot to something genuinely positive, a workaround, or what would make it better — never fake enthusiasm that contradicts what they said, but never publish a post that reads as a bad review either. If what they said is too negative or unclear to reframe honestly, ask a clarifying question instead of guessing (see above).
+- If anything the user wrote is a complaint or negative — whether in their free-text input, a follow-up question answer, or a custom identity/tone/style "other" entry — do not reproduce that negativity in the post (this is being used to promote a brand; a post that reads as a bad review defeats the purpose). Reframe it constructively: acknowledge the real feeling briefly, then pivot to something genuinely positive, a workaround, or what would make it better — never fake enthusiasm that contradicts what they said, but never publish a post that reads as a bad review either. If what they said is too negative or unclear to reframe honestly, ask a clarifying question instead of guessing (see above).
 - Structure for virality on XHS specifically (these apply to XHS posts; use platform-appropriate judgment for Instagram):
   - Title: under 20 characters, using a proven hook pattern — a number ("3个技巧..."), a question ("为什么...？"), or a before/after contrast ("用了...之后..."). The title is the single biggest driver of clicks, so never write a flat/descriptive title.
   - Body: one strong hook line first (curiosity, a relatable moment, or a surprising detail), then short scannable paragraphs (not a wall of text), with emoji used for visual rhythm/pacing rather than decoration, ending with a line that invites comments/interaction (a question back to the reader, or an invitation to share their own experience).
@@ -251,6 +251,7 @@ const FOLLOW_UP_SYSTEM_PROMPT = `You look at a photo and a chosen category, then
 
 Rules:
 - Base the questions on what is actually visible in the photo, not generic questions.
+- If a brand/product name or description is given in the context, and the photo does NOT plausibly connect to it (e.g. the brand sells skincare but the photo shows a car, with no visible link), this takes priority over generic questions: one of your questions must ask the customer to explain the connection themselves (e.g. "这张照片和 X 有什么关系呢？" / "How does this photo relate to X?"), with 3 short plausible-connection options plus room for their own answer. Do not just guess a connection or ignore the mismatch.
 - At most 2 questions. Each question needs exactly 3 short answer options (a few words each).
 - Write the question and options in the same language as the category label given to you.
 - Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
@@ -269,13 +270,21 @@ export async function generateFollowUpQuestions(input: {
   category: string;
   imageBase64?: string;
   imageMediaType?: string;
+  brandName?: string;
+  productDescription?: string;
 }): Promise<FollowUpQuestion[]> {
   if (!process.env.ANTHROPIC_API_KEY) {
     return buildTemplateQuestions(input.category);
   }
 
+  const contextLines = [
+    `Category: ${input.category}`,
+    input.brandName ? `Brand/product name: ${input.brandName}` : null,
+    input.productDescription ? `Product/brand description: ${input.productDescription}` : null,
+  ].filter(Boolean);
+
   const userContent: Anthropic.MessageParam["content"] = [
-    { type: "text", text: `Category: ${input.category}` },
+    { type: "text", text: contextLines.join("\n") },
   ];
 
   if (input.imageBase64 && input.imageMediaType) {

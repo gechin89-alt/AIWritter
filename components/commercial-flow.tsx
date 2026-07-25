@@ -289,7 +289,7 @@ export function CommercialFlow({
       const res = await fetch("/api/generate-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, mediaPath: resolvedMediaPath }),
+        body: JSON.stringify({ category, mediaPath: resolvedMediaPath, campaignSlug }),
       });
       if (res.status === 503) {
         setAiUnavailable(true);
@@ -733,6 +733,7 @@ export function CommercialFlow({
         accept="image/*"
         uploadLabel={tc("uploadCta")}
         removeLabel={tc("removePhoto")}
+        disableRemove={stylingPhoto}
       />
 
       {stylingPhoto && (
@@ -944,29 +945,48 @@ export function CommercialFlow({
     return (
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
-        <div className="mt-6 flex flex-col gap-5">
-          <div>
-            <label className="text-sm font-medium">{q.question}</label>
-            <div className="mt-2">
-              <ChoiceGroupWithOther
-                options={q.options}
-                otherLabel={otherLabel}
-                otherPlaceholder={tc("otherPlaceholder")}
-                value={followUpAnswers[followUpIndex] ?? ""}
-                onChange={(value) => {
-                  const next = [...followUpAnswers];
-                  next[followUpIndex] = value;
-                  setFollowUpAnswers(next);
-                }}
-              />
+        <div className="mt-4 flex flex-col gap-3">
+          {/* Chat-style thread: every question already asked shows as a
+              received bubble, with the customer's picked answer as a sent
+              bubble right after it — reads like a conversation instead of a
+              plain form, which is more inviting to actually engage with. */}
+          {followUpQuestions.slice(0, followUpIndex + 1).map((histQ, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-4 py-2 text-sm text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100">
+                  {histQ.question}
+                </div>
+              </div>
+              {i < followUpIndex && followUpAnswers[i] && (
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand px-4 py-2 text-sm text-white">
+                    {followUpAnswers[i]}
+                  </div>
+                </div>
+              )}
             </div>
+          ))}
+
+          <div className="mt-1">
+            <ChoiceGroupWithOther
+              options={q.options}
+              otherLabel={otherLabel}
+              otherPlaceholder={tc("otherPlaceholder")}
+              value={followUpAnswers[followUpIndex] ?? ""}
+              onChange={(value) => {
+                const next = [...followUpAnswers];
+                next[followUpIndex] = value;
+                setFollowUpAnswers(next);
+              }}
+            />
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
             onClick={() => setFollowUpIndex(followUpIndex + 1)}
-            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
+            disabled={!followUpAnswers[followUpIndex]?.trim()}
+            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {tc("continueLabel")}
           </button>
