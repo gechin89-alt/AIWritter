@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { ChoiceGroup } from "./choice-group";
+import { ChoiceGroupWithOther } from "./choice-group-with-other";
 import { MediaUploadField } from "./media-upload-field";
 import { BrandProfileEditor } from "./brand-profile-editor";
 import { Modal } from "./modal";
@@ -516,8 +516,10 @@ export function IndividualFlow({
         <div>
           <label className="text-sm font-medium">{t("identity")}</label>
           <div className="mt-2">
-            <ChoiceGroup
+            <ChoiceGroupWithOther
               options={identityOptions}
+              otherLabel={t("otherOption")}
+              otherPlaceholder={t("otherPlaceholder")}
               value={identity}
               onChange={setIdentity}
             />
@@ -527,14 +529,26 @@ export function IndividualFlow({
         <div>
           <label className="text-sm font-medium">{t("tone")}</label>
           <div className="mt-2">
-            <ChoiceGroup options={toneOptions} value={tone} onChange={setTone} />
+            <ChoiceGroupWithOther
+              options={toneOptions}
+              otherLabel={t("otherOption")}
+              otherPlaceholder={t("otherPlaceholder")}
+              value={tone}
+              onChange={setTone}
+            />
           </div>
         </div>
 
         <div>
           <label className="text-sm font-medium">{t("style")}</label>
           <div className="mt-2">
-            <ChoiceGroup options={styleOptions} value={style} onChange={setStyle} />
+            <ChoiceGroupWithOther
+              options={styleOptions}
+              otherLabel={t("otherOption")}
+              otherPlaceholder={t("otherPlaceholder")}
+              value={style}
+              onChange={setStyle}
+            />
           </div>
         </div>
 

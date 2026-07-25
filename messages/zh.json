@@ -56,6 +56,8 @@
     "toneOptions": ["俏皮", "真诚", "有活力", "平静"],
     "style": "风格",
     "styleOptions": ["简约", "故事型", "清单型", "种草安利"],
+    "otherOption": "其他",
+    "otherPlaceholder": "请输入...",
     "freeText": "补充说明（可选）",
     "freeTextPlaceholder": "还有什么想加入帖子的内容...",
     "platform": "平台",

@@ -61,6 +61,8 @@
     "toneOptions": ["Playful", "Sincere", "Energetic", "Calm"],
     "style": "Style",
     "styleOptions": ["Minimalist", "Story-driven", "Listicle", "Enthusiastic recommendation"],
+    "otherOption": "Other",
+    "otherPlaceholder": "Type here...",
     "freeText": "Tell us more (optional)",
     "freeTextPlaceholder": "Anything else you want included in the post...",
     "platform": "Platform",
