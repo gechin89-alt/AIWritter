@@ -49,6 +49,9 @@
   },
   "individual": {
     "title": "For Your Own Business",
+    "postHistory": "History",
+    "postHistoryEmpty": "No posts generated yet.",
+    "postHistoryDelete": "Delete",
     "stepMedia": "Upload a photo or video",
     "identity": "Identity / persona",
     "identityOptions": [

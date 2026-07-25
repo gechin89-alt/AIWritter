@@ -7,6 +7,7 @@ import { useRouter } from "@/i18n/navigation";
 import { ChoiceGroupWithOther } from "./choice-group-with-other";
 import { MediaUploadField } from "./media-upload-field";
 import { BrandProfileEditor } from "./brand-profile-editor";
+import { PostHistoryButton } from "./post-history-button";
 import { Modal } from "./modal";
 import { toDownloadUrl } from "@/lib/download-url";
 
@@ -398,7 +399,10 @@ export function IndividualFlow({
       <div className="w-full max-w-lg">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold">{t("title")}</h1>
-          <BrandProfileEditor />
+          <div className="flex items-center gap-1.5">
+            <PostHistoryButton />
+            <BrandProfileEditor />
+          </div>
         </div>
         <p
           className={`mt-2 text-sm ${!unlimited && remaining <= 0 ? "text-red-600" : "text-zinc-500 dark:text-zinc-400"}`}
