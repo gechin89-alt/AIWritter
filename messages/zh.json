@@ -100,6 +100,9 @@
     "confirmTextMode": "确认",
     "reuploadPhoto": "重新上传照片",
     "chatReplyPlaceholder": "输入你的回复...",
+    "photoLockedHint": "已选定的照片（如需更换，请刷新页面重新开始）",
+    "sendReply": "发送",
+    "sendingReply": "发送中...",
     "save": "保存",
     "saving": "保存中...",
     "saved": "已保存！"
@@ -151,6 +154,9 @@
     "confirmTextMode": "确认",
     "reuploadPhoto": "重新上传照片",
     "chatReplyPlaceholder": "输入你的回复...",
+    "photoLockedHint": "已选定的照片（如需更换，请刷新页面重新开始）",
+    "sendReply": "发送",
+    "sendingReply": "发送中...",
     "chooseTitle": "选一个标题（发布时可用作小红书标题）：",
     "goToXHS": "前往小红书发布",
     "goToXHSHint": "已自动下载照片、复制文案，并打开小红书发布页面——在小红书里上传刚下载的照片、粘贴文案即可发布。"

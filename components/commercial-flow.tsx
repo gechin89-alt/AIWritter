@@ -144,6 +144,25 @@ export function CommercialFlow({
   // then follow-up questions), instead of dumping everything on one screen.
   const [photoStepConfirmed, setPhotoStepConfirmed] = useState(false);
 
+  // Once past the photo step, show the chosen photo as a small read-only
+  // reference above the questions — no upload/remove controls, so it can't
+  // be accidentally changed mid-questionnaire (a full page refresh is the
+  // only way to restart with a different photo). Declared early since the
+  // pendingQuestion chat screen (an early return further down) needs it too.
+  const lockedPhotoPath = styledPhotoPath ?? mediaPath;
+  const lockedPhotoPreview = lockedPhotoPath ? (
+    <div className="mb-1 flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
+      <Image
+        src={lockedPhotoPath}
+        alt=""
+        width={48}
+        height={48}
+        className="h-12 w-12 rounded-md object-cover"
+      />
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">{tc("photoLockedHint")}</p>
+    </div>
+  ) : null;
+
   async function uploadFile(file: File): Promise<string | undefined> {
     setUploading(true);
     try {
@@ -526,6 +545,7 @@ export function CommercialFlow({
             growing conversation (received bubbles for the AI's questions,
             sent bubbles for the customer's replies), like a WeChat/WhatsApp
             chat, instead of replacing the last question each round. */}
+        {lockedPhotoPreview}
         <div className="mt-4 flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
           {history.map((turn, i) => (
             <div key={i} className={`flex ${turn.role === "assistant" ? "justify-start" : "justify-end"}`}>
@@ -569,7 +589,7 @@ export function CommercialFlow({
               : "mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           }
         >
-          {loading ? t("generating") : t("generate")}
+          {loading ? tc("sendingReply") : tc("sendReply")}
         </button>
       </div>
     );
@@ -963,6 +983,7 @@ export function CommercialFlow({
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
         <div className="mt-4 flex flex-col gap-3">
+          {lockedPhotoPreview}
           {/* Chat-style thread: every question already asked shows as a
               received bubble, with the customer's picked answer as a sent
               bubble right after it — reads like a conversation instead of a
@@ -1038,6 +1059,7 @@ export function CommercialFlow({
     <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
       <div className="mt-6 flex flex-col gap-5">
+        {lockedPhotoPreview}
         {!photoSelectionPending && (
           <>
             {questionMode === "FIXED" && (

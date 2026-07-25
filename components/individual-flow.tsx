@@ -46,6 +46,25 @@ export function IndividualFlow({
   const [previewingVariant, setPreviewingVariant] = useState<string | null>(null);
   const [photoStepConfirmed, setPhotoStepConfirmed] = useState(false);
 
+  // Once past the photo step, show the chosen photo as a small read-only
+  // reference above the questions — no upload/remove controls, so it can't
+  // be accidentally changed mid-questionnaire (a full page refresh is the
+  // only way to restart with a different photo). Declared early since the
+  // pendingQuestion chat screen (an early return further down) needs it too.
+  const lockedPhotoPath = styledPhotoPath ?? mediaPath;
+  const lockedPhotoPreview = lockedPhotoPath ? (
+    <div className="mb-1 flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
+      <Image
+        src={lockedPhotoPath}
+        alt=""
+        width={48}
+        height={48}
+        className="h-12 w-12 rounded-md object-cover"
+      />
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("photoLockedHint")}</p>
+    </div>
+  ) : null;
+
   const [identity, setIdentity] = useState("");
   const [tone, setTone] = useState("");
   const [style, setStyle] = useState("");
@@ -264,6 +283,7 @@ export function IndividualFlow({
         {/* Chat-style thread, matching commercial-flow's treatment: the
             back-and-forth so far renders as a growing conversation instead
             of replacing the last question each round. */}
+        {lockedPhotoPreview}
         <div className="mt-4 flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
           {history.map((turn, i) => (
             <div key={i} className={`flex ${turn.role === "assistant" ? "justify-start" : "justify-end"}`}>
@@ -307,7 +327,7 @@ export function IndividualFlow({
               : "mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           }
         >
-          {loading ? t("generating") : t("generate")}
+          {loading ? t("sendingReply") : t("sendReply")}
         </button>
       </div>
     );
@@ -491,6 +511,7 @@ export function IndividualFlow({
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
 
       <div className="mt-6 flex flex-col gap-5">
+        {lockedPhotoPreview}
         <div>
           <label className="text-sm font-medium">{t("identity")}</label>
           <div className="mt-2">

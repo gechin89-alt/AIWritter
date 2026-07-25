@@ -105,6 +105,9 @@
     "confirmTextMode": "Confirm",
     "reuploadPhoto": "Upload a different photo",
     "chatReplyPlaceholder": "Type your reply...",
+    "photoLockedHint": "Selected photo (refresh the page to restart if you need a different one)",
+    "sendReply": "Send",
+    "sendingReply": "Sending...",
     "save": "Save",
     "saving": "Saving...",
     "saved": "Saved!"
@@ -166,6 +169,9 @@
     "confirmTextMode": "Confirm",
     "reuploadPhoto": "Upload a different photo",
     "chatReplyPlaceholder": "Type your reply...",
+    "photoLockedHint": "Selected photo (refresh the page to restart if you need a different one)",
+    "sendReply": "Send",
+    "sendingReply": "Sending...",
     "chooseTitle": "Pick a title (usable as the XHS title field when posting):",
     "goToXHS": "Go to Xiaohongshu to post",
     "goToXHSHint": "Your photo has been downloaded and the caption copied — the Xiaohongshu publish page is now open. Just upload the downloaded photo and paste the caption to post."
