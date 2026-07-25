@@ -462,7 +462,14 @@ export function CommercialFlow({
     }
   }
 
-  async function handleGoToXHS() {
+  function handleGoToXHS() {
+    // window.open must be the very first thing that happens, synchronously,
+    // in direct response to the click — after any `await`, several browsers
+    // (especially mobile) no longer treat it as a user-initiated action and
+    // silently block the popup, leaving only the photo download visible and
+    // making it look like the button did nothing for XHS at all.
+    window.open("https://creator.xiaohongshu.com/publish/publish", "_blank");
+
     const photoPath = styledPhotoPath ?? mediaPath;
     if (photoPath) {
       const a = document.createElement("a");
@@ -473,14 +480,11 @@ export function CommercialFlow({
       document.body.removeChild(a);
     }
     if (result) {
-      await navigator.clipboard.writeText(result);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      navigator.clipboard.writeText(result).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
     }
-    // Official XHS creator web publish page — no login automation, the user
-    // still uploads the (already-downloaded) photo and pastes the (already-
-    // copied) caption themselves inside XHS's own compose screen.
-    window.open("https://creator.xiaohongshu.com/publish/publish", "_blank");
   }
 
   function handlePostAnother() {
