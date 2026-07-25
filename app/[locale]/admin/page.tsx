@@ -354,7 +354,12 @@ export default async function AdminPage({
                   </td>
                   <td className="px-3 py-2">
                     {notPosted && s.phone && (
-                      <NotifyUserButton phone={s.phone} campaignName={s.campaign.name} />
+                      <NotifyUserButton
+                        phone={s.phone}
+                        campaignName={s.campaign.name}
+                        campaignSlug={s.campaign.slug}
+                        submissionId={s.id}
+                      />
                     )}
                   </td>
                 </tr>

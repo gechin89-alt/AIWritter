@@ -1,20 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 export function NotifyUserButton({
   phone,
   campaignName,
+  campaignSlug,
+  submissionId,
 }: {
   phone: string;
   campaignName: string;
+  campaignSlug: string;
+  submissionId: string;
 }) {
   const t = useTranslations("admin");
+  const locale = useLocale();
   const [copied, setCopied] = useState(false);
 
   async function handleCopyMessage() {
-    const message = t("notifyMessage", { campaign: campaignName });
+    // The submission's own id is an unguessable cuid, acting as the access
+    // token for this no-login resume link — same pattern as most share/resume
+    // links. Takes the customer straight to their existing result +
+    // submit-link screen instead of starting the whole flow over.
+    const resumeUrl = `${window.location.origin}/${locale}/commercial/${campaignSlug}?resume=${submissionId}`;
+    const message = `${t("notifyMessage", { campaign: campaignName })}\n${resumeUrl}`;
     await navigator.clipboard.writeText(message);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

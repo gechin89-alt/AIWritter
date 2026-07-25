@@ -39,6 +39,7 @@ export function CommercialFlow({
   identityMultiSelect,
   toneMultiSelect,
   styleMultiSelect,
+  resumeSubmissionId,
 }: {
   campaignSlug: string;
   questionMode?: "FIXED" | "AI_ADAPTIVE";
@@ -54,6 +55,10 @@ export function CommercialFlow({
   identityMultiSelect?: boolean;
   toneMultiSelect?: boolean;
   styleMultiSelect?: boolean;
+  /** From a "?resume=<id>" link (e.g. sent by customer service) — jumps
+   * straight to the result/submit-link screen for an existing draft instead
+   * of starting the whole photo+questions flow over. */
+  resumeSubmissionId?: string;
 }) {
   const t = useTranslations("individual");
   const tc = useTranslations("commercial");
@@ -163,6 +168,31 @@ export function CommercialFlow({
       <p className="text-xs text-zinc-500 dark:text-zinc-400">{tc("photoLockedHint")}</p>
     </div>
   ) : null;
+
+  // A "?resume=<id>" link (e.g. sent by customer service to someone who
+  // generated a post but never submitted their XHS link) jumps straight to
+  // the result/submit-link screen instead of starting the whole flow over.
+  useEffect(() => {
+    if (!resumeSubmissionId) return;
+    fetch(`/api/submissions/${resumeSubmissionId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setSubmissionId(data.id);
+        setName(data.name ?? "");
+        setPhone(data.phone ?? "");
+        setMediaPath(data.mediaPath ?? null);
+        setPhotoVariants(data.photoVariants ?? []);
+        setResult(data.generatedContent ?? null);
+        setTitleOptions(data.titleVariants ?? []);
+        setChosenTitle(data.chosenTitle ?? data.titleVariants?.[0] ?? null);
+        if (data.xhsLink) setXhsLink(data.xhsLink);
+      })
+      .catch(() => {
+        // Silent — worst case the customer just starts the normal flow instead.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeSubmissionId]);
 
   async function uploadFile(file: File): Promise<string | undefined> {
     setUploading(true);

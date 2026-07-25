@@ -16,10 +16,13 @@ function parseOptions(json: string | null): string[] | undefined {
 
 export default async function CommercialCampaignPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ resume?: string }>;
 }) {
   const { locale, slug: rawSlug } = await params;
+  const { resume } = await searchParams;
   setRequestLocale(locale);
   const tc = await getTranslations("commercial");
 
@@ -100,6 +103,7 @@ export default async function CommercialCampaignPage({
           identityMultiSelect={campaign.identityMultiSelect}
           toneMultiSelect={campaign.toneMultiSelect}
           styleMultiSelect={campaign.styleMultiSelect}
+          resumeSubmissionId={resume}
         />
       </div>
     </div>
