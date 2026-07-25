@@ -54,7 +54,7 @@ export type GenerateInput = {
 };
 
 export type GenerateResult =
-  | { type: "question"; content: string }
+  | { type: "question"; content: string; suggestReupload?: boolean }
   | { type: "result"; content: string; titles?: string[] };
 
 export type FollowUpQuestion = { question: string; options: string[] };
@@ -75,6 +75,7 @@ Rules:
   - Include an appropriate sponsorship disclosure per platform norms (e.g. "#合作" / "#广告" for XHS, "#ad" / "Paid partnership" for Instagram) — do not try to hide that it's sponsored.
   - If a "Product/brand description" is given in the context, use it to understand what the brand actually sells and connect it naturally to the photo/topic. If no product description is given AND the photo/topic has no plausible connection to the brand name alone, do NOT invent a connection — ask a clarifying question instead (see below).
 - If the user's free-text input and answers are too vague or contradictory to write a good post (e.g. no topic at all), do NOT guess — instead ask ONE short clarifying question.
+- If the user's answer indicates the uploaded photo itself is wrong/mismatched (e.g. they say they uploaded the wrong photo, or a prior question already established the photo doesn't connect to the brand and they haven't resolved it), ask a clarifying question that also offers the option to upload a different photo, and set "suggestReupload":true in your JSON response so the app can show a direct re-upload action alongside your question. Only set this when the photo itself is the actual problem — not for other kinds of vagueness.
 - If anything the user wrote is a complaint or negative — whether in their free-text input, a follow-up question answer, or a custom identity/tone/style "other" entry — do not reproduce that negativity in the post (this is being used to promote a brand; a post that reads as a bad review defeats the purpose). Reframe it constructively: acknowledge the real feeling briefly, then pivot to something genuinely positive, a workaround, or what would make it better — never fake enthusiasm that contradicts what they said, but never publish a post that reads as a bad review either. If what they said is too negative or unclear to reframe honestly, ask a clarifying question instead of guessing (see above).
 - Structure for virality on XHS specifically (these apply to XHS posts; use platform-appropriate judgment for Instagram):
   - Title: under 20 characters, using a proven hook pattern — a number ("3个技巧..."), a question ("为什么...？"), or a before/after contrast ("用了...之后..."). The title is the single biggest driver of clicks, so never write a flat/descriptive title.
@@ -83,7 +84,7 @@ Rules:
 - Never use absolute/superlative or guarantee language, on any platform: words like 最/第一/唯一/独家/顶级/极致/绝对/保证/百分百 (or their English equivalents "best/#1/only/guaranteed/100%/absolutely"), and never claim medical/treatment effects (治疗/治愈/根治/药效, "cures/treats/heals"). These read as fake and are actively penalized/flagged by XHS's content review — write like a real person describing their own specific experience instead of making a claim.
 - When producing the final post (type="result"), also propose 5 DISTINCT title options as a separate "titles" array — these are standalone headline candidates for the platform's dedicated title field, NOT the post body's opening line. Vary the hook pattern across the 5 (mix number-based, question-based, and contrast/before-after patterns), each under 20 characters if Chinese / under 8 words if English, each genuinely different in angle, not minor rewordings of each other.
 - Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-  {"type":"question","content":"..."} when you need to ask something, or
+  {"type":"question","content":"..."} when you need to ask something (add "suggestReupload":true per the rule above when relevant), or
   {"type":"result","content":"...","titles":["...","...","...","...","..."]} when you are producing the final post text.`;
 
 /**
@@ -241,7 +242,7 @@ export async function generateContent(
         : undefined;
       return { type: "result", content: parsed.content, titles: titles?.length ? titles : undefined };
     }
-    return { type: "question", content: parsed.content };
+    return { type: "question", content: parsed.content, suggestReupload: parsed.suggestReupload === true };
   }
 
   return { type: "result", content: raw };

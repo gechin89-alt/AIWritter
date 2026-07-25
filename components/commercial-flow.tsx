@@ -122,7 +122,9 @@ export function CommercialFlow({
   const [titleOptions, setTitleOptions] = useState<string[]>([]);
   const [chosenTitle, setChosenTitle] = useState<string | null>(null);
   const [history, setHistory] = useState<ChatTurn[]>([]);
-  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const [pendingQuestion, setPendingQuestion] = useState<{ content: string; suggestReupload?: boolean } | null>(
+    null,
+  );
   const [clarifyAnswer, setClarifyAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -347,7 +349,7 @@ export function CommercialFlow({
       if (!res.ok) throw new Error("generate failed");
       const data = await res.json();
       if (data.type === "question") {
-        setPendingQuestion(data.content);
+        setPendingQuestion({ content: data.content, suggestReupload: data.suggestReupload });
         setHistory([...nextHistory, { role: "assistant", content: data.content }]);
       } else {
         setPendingQuestion(null);
@@ -377,6 +379,27 @@ export function CommercialFlow({
     const nextHistory: ChatTurn[] = [...history, { role: "user", content: clarifyAnswer }];
     setClarifyAnswer("");
     await callGenerate(nextHistory);
+  }
+
+  function handleReupload() {
+    setPendingQuestion(null);
+    setHistory([]);
+    setClarifyAnswer("");
+    setMediaFile(null);
+    setMediaPath(null);
+    setStyledPhotoPath(null);
+    setPhotoVariants([]);
+    setTextModeChoice("auto");
+    setCustomText("");
+    if (questionMode === "FIXED") {
+      setPhotoStepConfirmed(false);
+    } else {
+      // AI_ADAPTIVE's photo step is gated by questionsFetched instead.
+      setQuestionsFetched(false);
+      setFollowUpQuestions([]);
+      setFollowUpAnswers([]);
+      setFollowUpIndex(0);
+    }
   }
 
   async function handleCopy() {
@@ -506,6 +529,15 @@ export function CommercialFlow({
     setSubmitted(false);
     setError(null);
     setAiUnavailable(false);
+    // Name/phone are cleared unconditionally, even for the same customer
+    // posting again — this is a form on a device that may be shared at a
+    // physical event, so contact info must never silently carry over to
+    // whoever uses it next. Re-showing the saved-contact prompt (if the
+    // opt-in checkbox was used) lets a returning customer confirm with one
+    // tap instead of retyping, without auto-filling for anyone else.
+    setName("");
+    setPhone("");
+    setSavedContactPromptDismissed(false);
   }
 
   if (submitted) {
@@ -533,19 +565,47 @@ export function CommercialFlow({
     return (
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-lg font-semibold">{t("clarifyTitle")}</h2>
-        <p className="mt-3 rounded-lg bg-zinc-100 p-3 text-sm dark:bg-zinc-900">
-          {pendingQuestion}
-        </p>
+        {/* Chat-style thread: the whole back-and-forth so far renders as a
+            growing conversation (received bubbles for the AI's questions,
+            sent bubbles for the customer's replies), like a WeChat/WhatsApp
+            chat, instead of replacing the last question each round. */}
+        <div className="mt-4 flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+          {history.map((turn, i) => (
+            <div key={i} className={`flex ${turn.role === "assistant" ? "justify-start" : "justify-end"}`}>
+              <div
+                className={
+                  turn.role === "assistant"
+                    ? "max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-4 py-2 text-sm text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+                    : "max-w-[85%] rounded-2xl rounded-br-sm bg-brand px-4 py-2 text-sm text-white"
+                }
+              >
+                {turn.content}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {pendingQuestion.suggestReupload && (
+          <button
+            type="button"
+            onClick={handleReupload}
+            className="mt-3 rounded-full border border-brand px-4 py-2 text-xs font-medium text-brand hover:bg-brand/10"
+          >
+            {tc("reuploadPhoto")}
+          </button>
+        )}
+
         <textarea
           value={clarifyAnswer}
           onChange={(e) => setClarifyAnswer(e.target.value)}
-          rows={3}
+          rows={2}
+          placeholder={tc("chatReplyPlaceholder")}
           className="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
         />
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         <button
           onClick={handleClarifySubmit}
-          disabled={loading || aiUnavailable}
+          disabled={loading || aiUnavailable || !clarifyAnswer.trim()}
           className={
             aiUnavailable
               ? "mt-3 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"

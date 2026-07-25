@@ -103,6 +103,8 @@
     "textModeNone": "No text",
     "customTextPlaceholder": "Type the text you want on the photo (20 characters or less recommended)...",
     "confirmTextMode": "Confirm",
+    "reuploadPhoto": "Upload a different photo",
+    "chatReplyPlaceholder": "Type your reply...",
     "save": "Save",
     "saving": "Saving...",
     "saved": "Saved!"
@@ -166,6 +168,8 @@
     "textModeNone": "No text",
     "customTextPlaceholder": "Type the text you want on the photo (20 characters or less recommended)...",
     "confirmTextMode": "Confirm",
+    "reuploadPhoto": "Upload a different photo",
+    "chatReplyPlaceholder": "Type your reply...",
     "chooseTitle": "Pick a title (usable as the XHS title field when posting):",
     "goToXHS": "Go to Xiaohongshu to post",
     "goToXHSHint": "Your photo has been downloaded and the caption copied — the Xiaohongshu publish page is now open. Just upload the downloaded photo and paste the caption to post."
