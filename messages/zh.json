@@ -52,6 +52,7 @@
     "postHistory": "历史记录",
     "postHistoryEmpty": "还没有生成过帖子。",
     "postHistoryDelete": "删除",
+    "postHistoryBack": "← 返回列表",
     "stepMedia": "上传照片或视频",
     "identity": "身份 / 人设",
     "identityOptions": ["搞笑主持人", "认真测评者", "温暖讲述者", "生活记录者"],

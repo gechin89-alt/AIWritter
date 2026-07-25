@@ -52,6 +52,7 @@
     "postHistory": "History",
     "postHistoryEmpty": "No posts generated yet.",
     "postHistoryDelete": "Delete",
+    "postHistoryBack": "← Back to list",
     "stepMedia": "Upload a photo or video",
     "identity": "Identity / persona",
     "identityOptions": [
