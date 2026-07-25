@@ -243,6 +243,30 @@ export function IndividualFlow({
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function handleGoToXHS() {
+    // window.open must be the very first thing that happens, synchronously,
+    // in direct response to the click — after any `await`, several browsers
+    // (especially mobile) no longer treat it as a user-initiated action and
+    // silently block the popup.
+    window.open("https://creator.xiaohongshu.com/publish/publish", "_blank");
+
+    const photoPath = styledPhotoPath ?? mediaPath;
+    if (photoPath) {
+      const a = document.createElement("a");
+      a.href = toDownloadUrl(photoPath);
+      a.download = "";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    if (result) {
+      navigator.clipboard.writeText(result).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  }
+
   if (result) {
     const finalPhotoPath = styledPhotoPath ?? mediaPath;
     return (
@@ -267,12 +291,21 @@ export function IndividualFlow({
         <div className="mt-4 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950">
           {result}
         </div>
-        <button
-          onClick={handleCopy}
-          className="mt-4 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          {copied ? t("copied") : t("copy")}
-        </button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={handleCopy}
+            className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            {copied ? t("copied") : t("copy")}
+          </button>
+          <button
+            onClick={handleGoToXHS}
+            className="rounded-full border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-brand/10"
+          >
+            {t("goToXHS")}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{t("goToXHSHint")}</p>
       </div>
     );
   }

@@ -71,6 +71,8 @@
     "result": "Your generated post",
     "copy": "Copy to clipboard",
     "copied": "Copied!",
+    "goToXHS": "Go to Xiaohongshu to post",
+    "goToXHSHint": "Your photo has been downloaded and the caption copied — the Xiaohongshu publish page is now open. Just upload the downloaded photo and paste the caption to post.",
     "clarifyTitle": "Just to confirm the direction",
     "errorGeneric": "Something went wrong. Please try again.",
     "quotaRemaining": "{count, plural, =0 {No free posts left} one {# free post left} other {# free posts left}}",

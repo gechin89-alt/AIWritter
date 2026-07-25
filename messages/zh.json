@@ -66,6 +66,8 @@
     "result": "生成的帖子",
     "copy": "复制到剪贴板",
     "copied": "已复制！",
+    "goToXHS": "前往小红书发布",
+    "goToXHSHint": "已自动下载照片、复制文案，并打开小红书发布页面——在小红书里上传刚下载的照片、粘贴文案即可发布。",
     "clarifyTitle": "请确认一下方向",
     "errorGeneric": "出现错误，请重试。",
     "quotaRemaining": "{count, plural, other {还剩 # 次免费创建}}",
