@@ -7,8 +7,10 @@ import { useRouter } from "@/i18n/navigation";
 import { ChoiceGroup } from "./choice-group";
 import { MediaUploadField } from "./media-upload-field";
 import { BrandProfileEditor } from "./brand-profile-editor";
+import { Modal } from "./modal";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
+type TextMode = "auto" | "custom" | "none";
 
 export function IndividualFlow({
   used,
@@ -31,6 +33,15 @@ export function IndividualFlow({
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPath, setMediaPath] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const isImage = mediaFile ? mediaFile.type.startsWith("image/") : false;
+
+  const [textModeChoice, setTextModeChoice] = useState<TextMode | null>(null);
+  const [customText, setCustomText] = useState("");
+  const [stylingPhoto, setStylingPhoto] = useState(false);
+  const [styledPhotoPath, setStyledPhotoPath] = useState<string | null>(null);
+  const [photoVariants, setPhotoVariants] = useState<string[]>([]);
+  const [previewingVariant, setPreviewingVariant] = useState<string | null>(null);
+  const [photoStepConfirmed, setPhotoStepConfirmed] = useState(false);
 
   const [identity, setIdentity] = useState("");
   const [tone, setTone] = useState("");
@@ -69,6 +80,48 @@ export function IndividualFlow({
     }
   }
 
+  function handleMediaSelected(file: File | null) {
+    setMediaFile(file);
+    setMediaPath(null);
+    setTextModeChoice(null);
+    setCustomText("");
+    setStyledPhotoPath(null);
+    setPhotoVariants([]);
+  }
+
+  async function runPhotoStyling(mode: TextMode, text?: string) {
+    setTextModeChoice(mode);
+    setStyledPhotoPath(null);
+    setPhotoVariants([]);
+    setStylingPhoto(true);
+    try {
+      const resolvedPath = await uploadMediaIfNeeded();
+      if (!resolvedPath) return;
+      const res = await fetch("/api/photo-filter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaPath: resolvedPath, locale, textMode: mode, customText: text }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const variants: string[] = data.variants ?? [];
+        if (data.filtered && variants.length > 1) {
+          setPhotoVariants(variants);
+        } else if (data.filtered && variants.length === 1) {
+          setStyledPhotoPath(variants[0]);
+        }
+      }
+    } finally {
+      setStylingPhoto(false);
+    }
+  }
+
+  function handleChoosePhotoVariant(path: string) {
+    setStyledPhotoPath(path);
+  }
+
+  const photoSelectionPending = photoVariants.length > 0 && !styledPhotoPath;
+
   async function callGenerate(nextHistory: ChatTurn[], resolvedMediaPath?: string) {
     setLoading(true);
     setError(null);
@@ -82,7 +135,7 @@ export function IndividualFlow({
           tone,
           style,
           freeText,
-          mediaPath: resolvedMediaPath ?? mediaPath ?? undefined,
+          mediaPath: resolvedMediaPath ?? styledPhotoPath ?? mediaPath ?? undefined,
           history: nextHistory,
           locale,
         }),
@@ -140,19 +193,20 @@ export function IndividualFlow({
 
   if (result) {
     const isVideo = mediaFile?.type.startsWith("video/") ?? false;
+    const finalPhotoPath = styledPhotoPath ?? mediaPath;
     return (
       <div className="w-full max-w-lg">
         <h2 className="text-xl font-semibold">{t("result")}</h2>
-        {mediaPath &&
+        {finalPhotoPath &&
           (isVideo ? (
             <video
-              src={mediaPath}
+              src={finalPhotoPath}
               controls
               className="mt-4 max-h-72 w-auto rounded-lg border border-zinc-200 dark:border-zinc-800"
             />
           ) : (
             <Image
-              src={mediaPath}
+              src={finalPhotoPath}
               alt=""
               width={240}
               height={240}
@@ -201,31 +255,175 @@ export function IndividualFlow({
     );
   }
 
+  const previewModal = (
+    <Modal open={previewingVariant !== null} onClose={() => setPreviewingVariant(null)}>
+      {previewingVariant && (
+        <div className="flex flex-col items-center gap-3">
+          <Image
+            src={previewingVariant}
+            alt=""
+            width={480}
+            height={480}
+            className="max-h-[70vh] w-auto rounded-lg object-contain"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              handleChoosePhotoVariant(previewingVariant);
+              setPreviewingVariant(null);
+            }}
+            className="rounded-full bg-brand px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            {t("chooseThisPhoto")}
+          </button>
+        </div>
+      )}
+    </Modal>
+  );
+
+  if (!photoStepConfirmed) {
+    return (
+      <div className="w-full max-w-lg">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">{t("title")}</h1>
+          <BrandProfileEditor />
+        </div>
+        <p
+          className={`mt-2 text-sm ${!unlimited && remaining <= 0 ? "text-red-600" : "text-zinc-500 dark:text-zinc-400"}`}
+        >
+          {unlimited ? t("quotaUnlimited") : t("quotaRemaining", { count: remaining })}
+        </p>
+
+        <div className="mt-6 flex flex-col gap-5">
+          <MediaUploadField
+            label={t("stepMedia")}
+            file={mediaFile}
+            onChange={handleMediaSelected}
+            accept="image/*,video/*"
+            uploadLabel={t("uploadCta")}
+            removeLabel={t("removePhoto")}
+          />
+
+          {isImage && !styledPhotoPath && !stylingPhoto && (
+            <div>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">{t("chooseTextMode")}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => runPhotoStyling("auto")}
+                  className={
+                    textModeChoice === "auto"
+                      ? "rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white"
+                      : "rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-brand/50 dark:border-zinc-700 dark:text-zinc-400"
+                  }
+                >
+                  {t("textModeAuto")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTextModeChoice("custom")}
+                  className={
+                    textModeChoice === "custom"
+                      ? "rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white"
+                      : "rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-brand/50 dark:border-zinc-700 dark:text-zinc-400"
+                  }
+                >
+                  {t("textModeCustom")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runPhotoStyling("none")}
+                  className={
+                    textModeChoice === "none"
+                      ? "rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white"
+                      : "rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-brand/50 dark:border-zinc-700 dark:text-zinc-400"
+                  }
+                >
+                  {t("textModeNone")}
+                </button>
+              </div>
+              {textModeChoice === "custom" && (
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value.slice(0, 30))}
+                    placeholder={t("customTextPlaceholder")}
+                    maxLength={30}
+                    className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => runPhotoStyling("custom", customText)}
+                    disabled={!customText.trim()}
+                    className="rounded-full bg-brand px-4 py-2 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+                  >
+                    {t("confirmTextMode")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {stylingPhoto && (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("stylingPhoto")}</p>
+          )}
+
+          {photoVariants.length > 1 && !styledPhotoPath && !stylingPhoto && (
+            <div>
+              <p className="text-xs text-zinc-600 dark:text-zinc-400">{t("choosePhotoVariant")}</p>
+              <div className="mt-2 flex gap-2">
+                {photoVariants.map((variantPath) => (
+                  <button
+                    key={variantPath}
+                    type="button"
+                    onClick={() => setPreviewingVariant(variantPath)}
+                    className="overflow-hidden rounded-lg border-2 border-transparent hover:border-brand"
+                  >
+                    <Image src={variantPath} alt="" width={96} height={96} className="h-24 w-24 object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {previewModal}
+
+          {styledPhotoPath && !stylingPhoto && (
+            <div className="flex items-center gap-3 rounded-lg border border-brand/30 bg-brand/5 p-3">
+              <Image
+                src={styledPhotoPath}
+                alt=""
+                width={64}
+                height={64}
+                className="h-16 w-16 rounded-md object-cover"
+              />
+              <div className="flex flex-col gap-1">
+                <p className="text-xs text-zinc-600 dark:text-zinc-400">{t("styledPhotoReady")}</p>
+                <a href={styledPhotoPath} download className="text-xs font-medium text-brand underline">
+                  {t("downloadStyledPhoto")}
+                </a>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setPhotoStepConfirmed(true)}
+            disabled={photoSelectionPending || stylingPhoto || uploading}
+            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          >
+            {t("continueLabel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-lg">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{t("title")}</h1>
-        <BrandProfileEditor />
-      </div>
-      <p
-        className={`mt-2 text-sm ${!unlimited && remaining <= 0 ? "text-red-600" : "text-zinc-500 dark:text-zinc-400"}`}
-      >
-        {unlimited ? t("quotaUnlimited") : t("quotaRemaining", { count: remaining })}
-      </p>
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
 
       <div className="mt-6 flex flex-col gap-5">
-        <MediaUploadField
-          label={t("stepMedia")}
-          file={mediaFile}
-          onChange={(file) => {
-            setMediaFile(file);
-            setMediaPath(null);
-          }}
-          accept="image/*,video/*"
-          uploadLabel={t("uploadCta")}
-          removeLabel={t("removePhoto")}
-        />
-
         <div>
           <label className="text-sm font-medium">{t("identity")}</label>
           <div className="mt-2">

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Modal } from "./modal";
 import { IconActionButton } from "./icon-action-button";
+import { MediaUploadField } from "./media-upload-field";
 
 export function BrandProfileEditor() {
   const t = useTranslations("individual");
@@ -17,6 +18,12 @@ export function BrandProfileEditor() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [enableBrandColor, setEnableBrandColor] = useState(false);
+  const [brandColor, setBrandColor] = useState("#ff2442");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [existingLogoPath, setExistingLogoPath] = useState<string | null>(null);
+  const [logoWatermarkEnabled, setLogoWatermarkEnabled] = useState(true);
+
   useEffect(() => {
     if (!open || loaded) return;
     fetch("/api/brand-profile")
@@ -25,9 +32,23 @@ export function BrandProfileEditor() {
         setBrandDescription(data.brandDescription ?? "");
         setStyleSampleText(data.styleSampleText ?? "");
         setImagePaths(data.brandImagePaths ?? []);
+        setEnableBrandColor(Boolean(data.brandColor));
+        setBrandColor(data.brandColor ?? "#ff2442");
+        setExistingLogoPath(data.logoPath ?? null);
+        setLogoWatermarkEnabled(data.logoWatermarkEnabled ?? true);
         setLoaded(true);
       });
   }, [open, loaded]);
+
+  async function uploadLogo(file: File): Promise<string | undefined> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", "logo");
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    return data.path as string;
+  }
 
   async function handleAddImages(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -56,10 +77,18 @@ export function BrandProfileEditor() {
   async function handleSave() {
     setSaving(true);
     try {
+      const logoPath = logoFile ? await uploadLogo(logoFile) : existingLogoPath;
       await fetch("/api/brand-profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandDescription, styleSampleText, brandImagePaths: imagePaths }),
+        body: JSON.stringify({
+          brandDescription,
+          styleSampleText,
+          brandImagePaths: imagePaths,
+          brandColor: enableBrandColor ? brandColor : null,
+          logoPath,
+          logoWatermarkEnabled,
+        }),
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -137,6 +166,45 @@ export function BrandProfileEditor() {
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{t("uploading")}</p>
             )}
           </div>
+
+          <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                checked={enableBrandColor}
+                onChange={(e) => setEnableBrandColor(e.target.checked)}
+              />
+              {t("brandColorLabel")}
+              {enableBrandColor && (
+                <input
+                  type="color"
+                  value={brandColor}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  className="h-8 w-14 cursor-pointer rounded border border-zinc-300 dark:border-zinc-700"
+                />
+              )}
+            </label>
+          </div>
+
+          <MediaUploadField
+            label={t("logoLabel")}
+            file={logoFile}
+            onChange={setLogoFile}
+            accept="image/*"
+            uploadLabel={t("logoUploadCta")}
+            removeLabel={t("logoRemove")}
+            existingUrl={existingLogoPath}
+            onRemoveExisting={() => setExistingLogoPath(null)}
+          />
+          <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={logoWatermarkEnabled}
+              onChange={(e) => setLogoWatermarkEnabled(e.target.checked)}
+            />
+            {t("logoWatermarkToggle")}
+          </label>
+
           <button
             type="button"
             onClick={handleSave}

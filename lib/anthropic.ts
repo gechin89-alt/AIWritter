@@ -313,28 +313,61 @@ export async function generateFollowUpQuestions(input: {
 
 export type LogoPosition = "bottom-left" | "bottom-right";
 export type TextPosition = "top" | "middle";
+// "auto": Claude invents 3 distinct hookText options from scratch.
+// "custom": the user wrote their own text; Claude only polishes it (keeps
+// their meaning) and decides placement — one shared plan reused across the
+// 3 style variants, since the text itself doesn't vary.
+// "none": no text at all — fastest path, skips the copywriting entirely.
+export type TextMode = "auto" | "custom" | "none";
 
 export type PhotoStylingPlan = {
-  hookText: string;
+  hookText: string; // "" means no text overlay (textMode "none")
   logoPosition: LogoPosition;
   textPosition: TextPosition;
 };
+
+function sanitizeHookText(text: string): string {
+  // Defense-in-depth beyond the "no emoji" prompt instructions: hookText
+  // renders as a raster overlay via a bundled font with no emoji glyphs, so
+  // a stray emoji here would show as a broken tofu box.
+  return text
+    .trim()
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/[‍️]/g, "")
+    .trim();
+}
+
+const PLACEMENT_RULES = `logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
+textPosition: "top" (upper third) or "middle" (vertically centered). First check: is there a face anywhere in the photo? If so, this is the deciding factor — pick whichever of "top"/"middle" does NOT overlap the face (a face matters far more than generic clutter). If there's no face, just pick whichever region has more open/plain background. If a face is large enough to overlap both regions, pick whichever overlaps it least.`;
+
+const HOOK_TEXT_RULES = `one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).`;
 
 // The actual color-grade/mood (which of the 12 viral trend styles) is
 // assigned randomly by the caller, not by Claude — this guarantees real
 // visual variety across the 3 options instead of relying on the model to
 // naturally avoid picking similar moods. Claude only handles the parts that
 // benefit from actually looking at the photo: the hook text and logo corner.
-const PHOTO_STYLING_SYSTEM_PROMPT = `You are a social media copywriter looking at a customer's photo for a brand's campaign post. Propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording AND placement meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide three things:
+const PHOTO_STYLING_SYSTEM_PROMPT_AUTO = `You are a social media copywriter looking at a customer's photo for a brand's post. Propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording AND placement meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide:
 
-1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Punchy and curiosity-driven, matching the brand's tone, not a generic slogan. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).
-2. logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
-3. textPosition: "top" (upper third — the default, safest choice) or "middle" (vertically centered). First check: is there a face anywhere in the photo? If so, this is the deciding factor — pick whichever of "top"/"middle" does NOT overlap the face (a face matters far more than generic clutter). If there's no face, just pick whichever region has more open/plain background. If a face is large enough to overlap both regions, pick whichever overlaps it least. Vary this across the 3 options where the photo allows it, rather than always picking the same one.
+1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — ${HOOK_TEXT_RULES} Punchy and curiosity-driven, matching the brand's tone, not a generic slogan.
+2. ${PLACEMENT_RULES}
 
-Write hookText in the language given by "Output language" in the context, if present.
+Vary textPosition across the 3 options where the photo allows it, rather than always picking the same one. Write hookText in the language given by "Output language" in the context, if present.
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
 {"options":[{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"},{"hookText":"...","logoPosition":"bottom-left","textPosition":"middle"},{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"}]}`;
+
+const PHOTO_STYLING_SYSTEM_PROMPT_CUSTOM = `You are a social media copywriter looking at a customer's photo for a brand's post. The customer already wrote their own caption text (given as "Customer's text" in the context) that they want overlaid on the photo — refine it into a punchy, scroll-stopping short line for a raster overlay, keeping their core meaning and language, just tightening the wording. ${HOOK_TEXT_RULES} If it's already short and punchy, keep it close to as-is rather than rewriting for the sake of it.
+
+Also decide: ${PLACEMENT_RULES}
+
+Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
+{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"}`;
+
+const PHOTO_STYLING_SYSTEM_PROMPT_LOGO_ONLY = `You are looking at a customer's photo for a brand's post to decide where a small logo badge should sit so it doesn't cover the main subject. Decide: ${PLACEMENT_RULES.split("\n")[0]}
+
+Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
+{"logoPosition":"bottom-right"}`;
 
 function buildTemplateStylingPlans(locale?: "en" | "zh"): PhotoStylingPlan[] {
   const isZh = locale !== "en";
@@ -345,54 +378,126 @@ function buildTemplateStylingPlans(locale?: "en" | "zh"): PhotoStylingPlan[] {
   ];
 }
 
+function buildImageUserContent(
+  imageBase64: string,
+  imageMediaType: string,
+  extraLines: (string | null | undefined | false)[],
+): Anthropic.MessageParam["content"] {
+  return [
+    {
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: imageMediaType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+        data: imageBase64,
+      },
+    },
+    { type: "text", text: extraLines.filter(Boolean).join("\n") || "No additional brand context given." },
+  ];
+}
+
+/**
+ * Looks at a photo and, depending on textMode, either invents 3 distinct
+ * hook-text options (auto), polishes the customer's own text into one
+ * placement-aware plan (custom), or just decides logo placement (none — no
+ * hookText at all, fastest path, skips the copywriting call entirely if
+ * there's also no logo to place, handled by the caller).
+ */
 export async function analyzePhotoForStyling(input: {
   imageBase64: string;
   imageMediaType: string;
   brandName?: string;
   productDescription?: string;
   locale?: "en" | "zh";
+  textMode?: TextMode;
+  customText?: string;
+  needsLogoPosition?: boolean;
 }): Promise<PhotoStylingPlan[]> {
+  const textMode = input.textMode ?? "auto";
+
   if (!process.env.ANTHROPIC_API_KEY) {
-    return buildTemplateStylingPlans(input.locale);
+    if (textMode === "auto") return buildTemplateStylingPlans(input.locale);
+    const fallback = buildTemplateStylingPlans(input.locale)[0];
+    return [
+      textMode === "custom"
+        ? { ...fallback, hookText: sanitizeHookText(input.customText ?? fallback.hookText) }
+        : { ...fallback, hookText: "" },
+    ];
   }
 
-  const contextLines = [
+  const baseLines = [
     input.locale
       ? `Output language: ${input.locale === "zh" ? "Chinese (Simplified)" : "English"}`
       : null,
     input.brandName ? `Brand/product name: ${input.brandName}` : null,
     input.productDescription ? `Product/brand description: ${input.productDescription}` : null,
-  ].filter(Boolean);
-
-  const userContent: Anthropic.MessageParam["content"] = [
-    {
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: input.imageMediaType as
-          | "image/jpeg"
-          | "image/png"
-          | "image/gif"
-          | "image/webp",
-        data: input.imageBase64,
-      },
-    },
-    { type: "text", text: contextLines.join("\n") || "No additional brand context given." },
   ];
 
+  const validLogoPositions: LogoPosition[] = ["bottom-left", "bottom-right"];
+  const validTextPositions: TextPosition[] = ["top", "middle"];
+
+  if (textMode === "none") {
+    if (!input.needsLogoPosition) {
+      return [{ hookText: "", logoPosition: "bottom-right", textPosition: "top" }];
+    }
+    const response = await createMessage({
+      model: MODEL,
+      max_tokens: 512,
+      system: PHOTO_STYLING_SYSTEM_PROMPT_LOGO_ONLY,
+      messages: [{ role: "user", content: buildImageUserContent(input.imageBase64, input.imageMediaType, baseLines) }],
+    });
+    const textBlock = response.content.find((block) => block.type === "text");
+    const raw = textBlock && "text" in textBlock ? textBlock.text : "";
+    const parsed = parseModelJson(raw);
+    const logoPosition = validLogoPositions.includes(parsed?.logoPosition as LogoPosition)
+      ? (parsed!.logoPosition as LogoPosition)
+      : "bottom-right";
+    return [{ hookText: "", logoPosition, textPosition: "top" }];
+  }
+
+  if (textMode === "custom") {
+    const customText = (input.customText ?? "").trim();
+    if (!customText) return [{ hookText: "", logoPosition: "bottom-right", textPosition: "top" }];
+
+    const response = await createMessage({
+      model: MODEL,
+      max_tokens: 1024,
+      system: PHOTO_STYLING_SYSTEM_PROMPT_CUSTOM,
+      messages: [
+        {
+          role: "user",
+          content: buildImageUserContent(input.imageBase64, input.imageMediaType, [
+            ...baseLines,
+            `Customer's text: ${customText}`,
+          ]),
+        },
+      ],
+    });
+    const textBlock = response.content.find((block) => block.type === "text");
+    const raw = textBlock && "text" in textBlock ? textBlock.text : "";
+    const parsed = parseModelJson(raw);
+    const hookText = typeof parsed?.hookText === "string" ? sanitizeHookText(parsed.hookText) : "";
+    const logoPosition = validLogoPositions.includes(parsed?.logoPosition as LogoPosition)
+      ? (parsed!.logoPosition as LogoPosition)
+      : "bottom-right";
+    const textPosition = validTextPositions.includes(parsed?.textPosition as TextPosition)
+      ? (parsed!.textPosition as TextPosition)
+      : "top";
+    return [{ hookText: hookText || sanitizeHookText(customText), logoPosition, textPosition }];
+  }
+
+  // textMode === "auto"
   const response = await createMessage({
     model: MODEL,
     max_tokens: 2048,
-    system: PHOTO_STYLING_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userContent }],
+    system: PHOTO_STYLING_SYSTEM_PROMPT_AUTO,
+    messages: [{ role: "user", content: buildImageUserContent(input.imageBase64, input.imageMediaType, baseLines) }],
   });
 
   const textBlock = response.content.find((block) => block.type === "text");
   const raw = textBlock && "text" in textBlock ? textBlock.text : "";
 
   const parsed = parseModelJson(raw);
-  const validLogoPositions: LogoPosition[] = ["bottom-left", "bottom-right"];
-  const validTextPositions: TextPosition[] = ["top", "middle"];
   const rawOptions = Array.isArray(parsed?.options) ? (parsed.options as Record<string, unknown>[]) : [];
   const plans = rawOptions
     .filter(
@@ -402,14 +507,7 @@ export async function analyzePhotoForStyling(input: {
         validLogoPositions.includes(o.logoPosition as LogoPosition),
     )
     .map((o) => ({
-      // Defense-in-depth beyond the "no emoji" prompt instruction: hookText
-      // renders as a raster overlay via a bundled font with no emoji
-      // glyphs, so a stray emoji here would show as a broken tofu box.
-      hookText: (o.hookText as string)
-        .trim()
-        .replace(/\p{Extended_Pictographic}/gu, "")
-        .replace(/[‍️]/g, "")
-        .trim(),
+      hookText: sanitizeHookText(o.hookText as string),
       logoPosition: o.logoPosition as LogoPosition,
       textPosition: validTextPositions.includes(o.textPosition as TextPosition)
         ? (o.textPosition as TextPosition)

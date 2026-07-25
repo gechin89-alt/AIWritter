@@ -9,6 +9,7 @@ import { Modal } from "./modal";
 
 type FollowUpQuestion = { question: string; options: string[] };
 type ChatTurn = { role: "user" | "assistant"; content: string };
+type TextMode = "auto" | "custom" | "none";
 
 // Temporary free/AI-less beautify playground — hidden for now per request,
 // code kept intact so it can be switched back on later.
@@ -73,6 +74,8 @@ export function CommercialFlow({
   const [photoVariants, setPhotoVariants] = useState<string[]>([]);
   const [previewingVariant, setPreviewingVariant] = useState<string | null>(null);
   const [stylingPhoto, setStylingPhoto] = useState(false);
+  const [textModeChoice, setTextModeChoice] = useState<TextMode | null>(null);
+  const [customText, setCustomText] = useState("");
 
   // TEMPORARY: free, AI-less test button for tuning the base beautify look
   // in isolation, before the filter/logo pipeline. Remove once done testing.
@@ -193,32 +196,27 @@ export function CommercialFlow({
     }
   }
 
-  async function handleMediaSelected(file: File | null) {
+  function handleMediaSelected(file: File | null) {
     setMediaFile(file);
     setMediaPath(null);
     setStyledPhotoPath(null);
     setPhotoVariants([]);
-    if (!file) return;
+    setTextModeChoice(null);
+    setCustomText("");
+  }
 
-    setUploading(true);
+  async function runPhotoStyling(mode: TextMode, text?: string) {
+    setTextModeChoice(mode);
+    setStyledPhotoPath(null);
+    setPhotoVariants([]);
     setStylingPhoto(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!uploadRes.ok) return;
-      const uploadData = await uploadRes.json();
-      const rawPath = uploadData.path as string;
-      setMediaPath(rawPath);
-      setUploading(false);
-
+      const resolvedPath = await uploadMediaIfNeeded();
+      if (!resolvedPath) return;
       const filterRes = await fetch("/api/photo-filter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaPath: rawPath, campaignSlug, locale }),
+        body: JSON.stringify({ mediaPath: resolvedPath, campaignSlug, locale, textMode: mode, customText: text }),
       });
       if (filterRes.ok) {
         const filterData = await filterRes.json();
@@ -231,7 +229,6 @@ export function CommercialFlow({
         }
       }
     } finally {
-      setUploading(false);
       setStylingPhoto(false);
     }
   }
@@ -652,6 +649,67 @@ export function CommercialFlow({
         uploadLabel={tc("uploadCta")}
         removeLabel={tc("removePhoto")}
       />
+
+      {mediaFile && !styledPhotoPath && !stylingPhoto && photoVariants.length === 0 && (
+        <div className="mt-3">
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">{tc("chooseTextMode")}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => runPhotoStyling("auto")}
+              className={
+                textModeChoice === "auto"
+                  ? "rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white"
+                  : "rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-brand/50 dark:border-zinc-700 dark:text-zinc-400"
+              }
+            >
+              {tc("textModeAuto")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTextModeChoice("custom")}
+              className={
+                textModeChoice === "custom"
+                  ? "rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white"
+                  : "rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-brand/50 dark:border-zinc-700 dark:text-zinc-400"
+              }
+            >
+              {tc("textModeCustom")}
+            </button>
+            <button
+              type="button"
+              onClick={() => runPhotoStyling("none")}
+              className={
+                textModeChoice === "none"
+                  ? "rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white"
+                  : "rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-600 hover:border-brand/50 dark:border-zinc-700 dark:text-zinc-400"
+              }
+            >
+              {tc("textModeNone")}
+            </button>
+          </div>
+          {textModeChoice === "custom" && (
+            <div className="mt-2 flex gap-2">
+              <input
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value.slice(0, 30))}
+                placeholder={tc("customTextPlaceholder")}
+                maxLength={30}
+                className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              />
+              <button
+                type="button"
+                onClick={() => runPhotoStyling("custom", customText)}
+                disabled={!customText.trim()}
+                className="rounded-full bg-brand px-4 py-2 text-xs font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+              >
+                {tc("confirmTextMode")}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {stylingPhoto && (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           {tc("stylingPhoto")}
