@@ -162,7 +162,7 @@
     "submit": "Submit for the lucky draw",
     "submitted": "Thanks! Your entry has been recorded and your lucky draw entry is confirmed.",
     "terms": "Terms & Conditions",
-    "oneEntryPerPhoneHint": "Each phone number may only enter this campaign once — make sure it's correct, since your entry may be voided if we can't reach you afterward.",
+    "oneEntryPerPhoneHint": "Each phone number may only enter this campaign once — make sure it's correct, since your entry will automatically be voided if we can't reach you afterward.",
     "alreadySubmittedTitle": "You've already entered this campaign",
     "alreadySubmittedHint": "Each phone number may only enter once — this is what you submitted previously.",
     "contentReviewTitle": "Check out your post",

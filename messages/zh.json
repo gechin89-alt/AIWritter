@@ -147,7 +147,7 @@
     "submit": "提交参与抽奖",
     "submitted": "谢谢！你的参与信息已记录，抽奖资格已生效。",
     "terms": "条款与条件",
-    "oneEntryPerPhoneHint": "每个手机号码限参加本活动一次，请确保号码填写正确——如果之后联系不到你，抽奖资格可能会失效。",
+    "oneEntryPerPhoneHint": "每个手机号码限参加本活动一次，请确保号码填写正确——如果之后联系不到你，抽奖资格自动失效。",
     "alreadySubmittedTitle": "你已经参加过本活动",
     "alreadySubmittedHint": "每个手机号码限参加一次，这是你之前提交的记录。",
     "contentReviewTitle": "看看这篇文案",
