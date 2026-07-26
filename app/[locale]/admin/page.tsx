@@ -283,11 +283,9 @@ export default async function AdminPage({
       </p>
       {(() => {
         const rows = submissions.map((s) => {
+          const photoVariants: string[] = s.photoVariants ? JSON.parse(s.photoVariants) : [];
           const titleVariants: string[] = s.titleVariants ? JSON.parse(s.titleVariants) : [];
-          // Only the final chosen photo, not all 3 unstyled variant options
-          // — showing all 3 made rows stack tall since they wrapped onto
-          // separate lines once thumbnails got big enough to actually see.
-          const photos = s.mediaPath ? [s.mediaPath] : [];
+          const photos = photoVariants.length > 0 ? photoVariants : s.mediaPath ? [s.mediaPath] : [];
           const notPosted = s.status !== "POSTED";
           return { s, photos, titleVariants, notPosted };
         });
@@ -312,15 +310,19 @@ export default async function AdminPage({
                     <span className={statusBadgeClass(notPosted)}>{s.status}</span>
                   </div>
                   {photos.length > 0 && (
-                    <div className="mt-2 flex gap-2">
+                    <div className="mt-2 flex gap-2 overflow-x-auto">
                       {photos.map((p) => (
                         <a key={p} href={p} target="_blank" rel="noopener noreferrer">
                           <Image
                             src={p}
                             alt=""
-                            width={192}
-                            height={96}
-                            className="h-24 w-48 rounded object-cover"
+                            width={100}
+                            height={100}
+                            className={
+                              p === s.mediaPath
+                                ? "h-24 w-24 shrink-0 rounded object-cover ring-2 ring-brand"
+                                : "h-24 w-24 shrink-0 rounded object-cover"
+                            }
                           />
                         </a>
                       ))}
@@ -392,15 +394,24 @@ export default async function AdminPage({
                       <td className="px-3 py-2">{s.name || "—"}</td>
                       <td className="px-3 py-2">{s.phone || "—"}</td>
                       <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-2">
+                        {/* flex-nowrap (not flex-wrap): keeps all 3 style
+                            variants side by side on one line instead of
+                            stacking vertically and making the row tall — the
+                            table's own overflow-x-auto wrapper handles any
+                            horizontal overflow instead. */}
+                        <div className="flex flex-nowrap gap-2">
                           {photos.map((p) => (
                             <a key={p} href={p} target="_blank" rel="noopener noreferrer">
                               <Image
                                 src={p}
                                 alt=""
-                                width={192}
-                                height={96}
-                                className="h-24 w-48 rounded object-cover"
+                                width={100}
+                                height={100}
+                                className={
+                                  p === s.mediaPath
+                                    ? "h-24 w-24 shrink-0 rounded object-cover ring-2 ring-brand"
+                                    : "h-24 w-24 shrink-0 rounded object-cover"
+                                }
                               />
                             </a>
                           ))}
