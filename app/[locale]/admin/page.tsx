@@ -280,100 +280,172 @@ export default async function AdminPage({
           return t("subSummary", { total, posted, notPosted: total - posted });
         })()}
       </p>
-      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <table className="w-full min-w-[600px] text-left text-sm">
-          <thead className="bg-zinc-100 dark:bg-zinc-900">
-            <tr>
-              <th className="px-3 py-2">{t("subCampaign")}</th>
-              <th className="px-3 py-2">{t("subName")}</th>
-              <th className="px-3 py-2">{t("subPhone")}</th>
-              <th className="px-3 py-2">{t("subPhoto")}</th>
-              <th className="px-3 py-2">{t("subTitle")}</th>
-              <th className="px-3 py-2">{t("subLink")}</th>
-              <th className="px-3 py-2">{t("subStatus")}</th>
-              <th className="px-3 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {submissions.map((s) => {
-              const photoVariants: string[] = s.photoVariants ? JSON.parse(s.photoVariants) : [];
-              const titleVariants: string[] = s.titleVariants ? JSON.parse(s.titleVariants) : [];
-              const notPosted = s.status !== "POSTED";
-              return (
-                <tr key={s.id} className="border-t border-zinc-200 dark:border-zinc-800">
-                  <td className="px-3 py-2">{s.campaign.name}</td>
-                  <td className="px-3 py-2">{s.name || "—"}</td>
-                  <td className="px-3 py-2">{s.phone || "—"}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex gap-1">
-                      {(photoVariants.length > 0 ? photoVariants : s.mediaPath ? [s.mediaPath] : []).map(
-                        (p) => (
-                          <a key={p} href={p} target="_blank" rel="noopener noreferrer">
-                            <Image
-                              src={p}
-                              alt=""
-                              width={40}
-                              height={40}
-                              className={
-                                p === s.mediaPath
-                                  ? "h-10 w-10 rounded object-cover ring-2 ring-brand"
-                                  : "h-10 w-10 rounded object-cover"
-                              }
-                            />
-                          </a>
-                        ),
-                      )}
+      {(() => {
+        const rows = submissions.map((s) => {
+          const photoVariants: string[] = s.photoVariants ? JSON.parse(s.photoVariants) : [];
+          const titleVariants: string[] = s.titleVariants ? JSON.parse(s.titleVariants) : [];
+          const photos = photoVariants.length > 0 ? photoVariants : s.mediaPath ? [s.mediaPath] : [];
+          const notPosted = s.status !== "POSTED";
+          return { s, photos, titleVariants, notPosted };
+        });
+        const statusBadgeClass = (notPosted: boolean) =>
+          notPosted
+            ? "rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+            : "rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400";
+
+        return (
+          <>
+            {/* Card layout on narrow screens — the 8-column table below needs
+                horizontal scrolling to reach the photo, which isn't obvious
+                on a phone, so mobile gets photos front and center instead. */}
+            <div className="mt-4 flex flex-col gap-3 sm:hidden">
+              {rows.map(({ s, photos, titleVariants, notPosted }) => (
+                <div
+                  key={s.id}
+                  className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-medium">{s.campaign.name}</span>
+                    <span className={statusBadgeClass(notPosted)}>{s.status}</span>
+                  </div>
+                  {photos.length > 0 && (
+                    <div className="mt-2 flex gap-2">
+                      {photos.map((p) => (
+                        <a key={p} href={p} target="_blank" rel="noopener noreferrer">
+                          <Image
+                            src={p}
+                            alt=""
+                            width={72}
+                            height={72}
+                            className={
+                              p === s.mediaPath
+                                ? "h-[72px] w-[72px] rounded object-cover ring-2 ring-brand"
+                                : "h-[72px] w-[72px] rounded object-cover"
+                            }
+                          />
+                        </a>
+                      ))}
                     </div>
-                  </td>
-                  <td className="max-w-[200px] px-3 py-2">
-                    <p className="truncate" title={s.chosenTitle ?? ""}>
+                  )}
+                  <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+                    {s.name || "—"} · {s.phone || "—"}
+                  </p>
+                  {s.chosenTitle && (
+                    <p className="mt-1 truncate text-sm" title={s.chosenTitle}>
                       {s.chosenTitle}
                     </p>
-                    {titleVariants.length > 1 && (
-                      <p className="text-xs text-zinc-400">
-                        {t("subTitleOptionsCount", { count: titleVariants.length })}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    {s.xhsLink && (
-                      <a
-                        href={s.xhsLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand underline"
-                      >
-                        {s.xhsLink}
-                      </a>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={
-                        notPosted
-                          ? "rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
-                          : "rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      }
+                  )}
+                  {titleVariants.length > 1 && (
+                    <p className="text-xs text-zinc-400">
+                      {t("subTitleOptionsCount", { count: titleVariants.length })}
+                    </p>
+                  )}
+                  {s.xhsLink && (
+                    <a
+                      href={s.xhsLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 block truncate text-xs text-brand underline"
                     >
-                      {s.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    {notPosted && s.phone && (
+                      {s.xhsLink}
+                    </a>
+                  )}
+                  {notPosted && s.phone && (
+                    <div className="mt-2">
                       <NotifyUserButton
                         phone={s.phone}
                         campaignName={s.campaign.name}
                         campaignSlug={s.campaign.slug}
                         submissionId={s.id}
                       />
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 hidden overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800 sm:block">
+              <table className="w-full min-w-[600px] text-left text-sm">
+                <thead className="bg-zinc-100 dark:bg-zinc-900">
+                  <tr>
+                    <th className="px-3 py-2">{t("subCampaign")}</th>
+                    <th className="px-3 py-2">{t("subName")}</th>
+                    <th className="px-3 py-2">{t("subPhone")}</th>
+                    <th className="px-3 py-2">{t("subPhoto")}</th>
+                    <th className="px-3 py-2">{t("subTitle")}</th>
+                    <th className="px-3 py-2">{t("subLink")}</th>
+                    <th className="px-3 py-2">{t("subStatus")}</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(({ s, photos, titleVariants, notPosted }) => (
+                    <tr key={s.id} className="border-t border-zinc-200 dark:border-zinc-800">
+                      <td className="px-3 py-2">{s.campaign.name}</td>
+                      <td className="px-3 py-2">{s.name || "—"}</td>
+                      <td className="px-3 py-2">{s.phone || "—"}</td>
+                      <td className="px-3 py-2">
+                        <div className="flex gap-1">
+                          {photos.map((p) => (
+                            <a key={p} href={p} target="_blank" rel="noopener noreferrer">
+                              <Image
+                                src={p}
+                                alt=""
+                                width={40}
+                                height={40}
+                                className={
+                                  p === s.mediaPath
+                                    ? "h-10 w-10 rounded object-cover ring-2 ring-brand"
+                                    : "h-10 w-10 rounded object-cover"
+                                }
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="max-w-[200px] px-3 py-2">
+                        <p className="truncate" title={s.chosenTitle ?? ""}>
+                          {s.chosenTitle}
+                        </p>
+                        {titleVariants.length > 1 && (
+                          <p className="text-xs text-zinc-400">
+                            {t("subTitleOptionsCount", { count: titleVariants.length })}
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {s.xhsLink && (
+                          <a
+                            href={s.xhsLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand underline"
+                          >
+                            {s.xhsLink}
+                          </a>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={statusBadgeClass(notPosted)}>{s.status}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        {notPosted && s.phone && (
+                          <NotifyUserButton
+                            phone={s.phone}
+                            campaignName={s.campaign.name}
+                            campaignSlug={s.campaign.slug}
+                            submissionId={s.id}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      })()}
     </section>
   );
 
