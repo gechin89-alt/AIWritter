@@ -164,7 +164,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (commercial && submissionId && result.type === "result" && isRegenerate) {
+  // Counts as soon as a regenerate attempt actually runs, regardless of
+  // whether it comes back as a finished post or another clarifying question
+  // — from the customer's perspective, clicking "regenerate" once used up
+  // one of their 3 tries either way, not just the tries that happened to
+  // land on a finished post on the first try.
+  if (commercial && submissionId && isRegenerate) {
     const updated = await prisma.commercialSubmission.update({
       where: { id: submissionId },
       data: { editCount: { increment: 1 } },
