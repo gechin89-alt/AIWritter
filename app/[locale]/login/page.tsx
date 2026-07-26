@@ -30,6 +30,9 @@ export default async function LoginPage({
           {t("submitRegister")}
         </Link>
       </p>
+      <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">
+        {t("forgotPassword")} {t("forgotPasswordHint")}
+      </p>
     </div>
   );
 }

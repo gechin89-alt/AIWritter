@@ -45,7 +45,9 @@
     "submitRegister": "Sign up",
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
-    "error": "Something went wrong. Please check your details and try again."
+    "error": "Something went wrong. Please check your details and try again.",
+    "forgotPassword": "Forgot your password?",
+    "forgotPasswordHint": "Contact customer support to have it reset"
   },
   "individual": {
     "title": "For Your Own Business",

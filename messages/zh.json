@@ -45,7 +45,9 @@
     "submitRegister": "注册",
     "noAccount": "还没有账户？",
     "haveAccount": "已经有账户？",
-    "error": "出现错误，请检查填写信息后重试。"
+    "error": "出现错误，请检查填写信息后重试。",
+    "forgotPassword": "忘记密码？",
+    "forgotPasswordHint": "请联系客服协助重置密码"
   },
   "individual": {
     "title": "品牌自营",
