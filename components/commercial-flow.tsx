@@ -17,6 +17,8 @@ type TextMode = "auto" | "custom" | "none";
 // code kept intact so it can be switched back on later.
 const SHOW_BEAUTIFY_TEST_PANEL = false;
 
+const DEFAULT_EDIT_LIMIT = 3;
+
 // Loose on purpose: customers may be from different countries and type
 // spaces/dashes/a leading "+", so this only rejects obviously-wrong input
 // (letters, way too short/long) rather than enforcing one country's format.
@@ -153,625 +155,35 @@ export function CommercialFlow({
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [entryCount, setEntryCount] = useState<number | null>(null);
 
-  // FIXED-mode shows the photo step alone first, then the question form —
-  // matching AI_ADAPTIVE mode's existing two-step shape (photo+category,
-  // then follow-up questions), instead of dumping everything on one screen.
+  // Stage 0: contact info (name+phone) comes first now, before any Q&A or
+  // photo — so we can look the phone up (fairness: one entry per campaign)
+  // before the customer invests time answering questions.
+  const [contactConfirmed, setContactConfirmed] = useState(false);
+  const [checkingContact, setCheckingContact] = useState(false);
+  // Set when this phone has already POSTED for this campaign — blocks
+  // re-entry entirely instead of allowing a second lucky-draw entry.
+  const [blockedSubmission, setBlockedSubmission] = useState<{
+    generatedContent: string | null;
+    mediaPath: string | null;
+    xhsLink: string | null;
+  } | null>(null);
+  const [editCount, setEditCount] = useState(0);
+  const [editLimit, setEditLimit] = useState(DEFAULT_EDIT_LIMIT);
+
+  // Stage 2->3 gate: content (the written post) is reviewed/regenerated
+  // before moving on to the photo step.
+  const [contentStepConfirmed, setContentStepConfirmed] = useState(false);
+  // Stage 3->final gate: photo upload+beautify, now the LAST step before
+  // submission instead of the first — the written feedback shouldn't be
+  // limited by what's visible in a specific photo.
   const [photoStepConfirmed, setPhotoStepConfirmed] = useState(false);
 
-  // Once past the photo step, show the chosen photo as a small read-only
-  // reference above the questions — no upload/remove controls, so it can't
-  // be accidentally changed mid-questionnaire (a full page refresh is the
-  // only way to restart with a different photo). Declared early since the
-  // pendingQuestion chat screen (an early return further down) needs it too.
-  const lockedPhotoPath = styledPhotoPath ?? mediaPath;
-  const lockedPhotoPreview = lockedPhotoPath ? (
-    <div className="mb-1 flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <Image
-        src={lockedPhotoPath}
-        alt=""
-        width={48}
-        height={48}
-        className="h-12 w-12 rounded-md object-cover"
-      />
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">{tc("photoLockedHint")}</p>
-    </div>
-  ) : null;
-
-  // A "?resume=<id>" link (e.g. sent by customer service to someone who
-  // generated a post but never submitted their XHS link) jumps straight to
-  // the result/submit-link screen instead of starting the whole flow over.
-  useEffect(() => {
-    if (!resumeSubmissionId) return;
-    fetch(`/api/submissions/${resumeSubmissionId}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        setSubmissionId(data.id);
-        setName(data.name ?? "");
-        setPhone(data.phone ?? "");
-        setMediaPath(data.mediaPath ?? null);
-        setPhotoVariants(data.photoVariants ?? []);
-        setResult(data.generatedContent ?? null);
-        setTitleOptions(data.titleVariants ?? []);
-        setChosenTitle(data.chosenTitle ?? data.titleVariants?.[0] ?? null);
-        if (data.xhsLink) setXhsLink(data.xhsLink);
-      })
-      .catch(() => {
-        // Silent — worst case the customer just starts the normal flow instead.
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeSubmissionId]);
-
-  async function uploadFile(file: File): Promise<string | undefined> {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        // Surface the real reason (e.g. "Unsupported file type", "File too
-        // large") instead of a generic message, so a failure is actionable
-        // from what the customer sees on screen alone, no devtools needed.
-        const body = await res.json().catch(() => null);
-        throw new Error(`upload_failed:${res.status}:${body?.error ?? "unknown"}`);
-      }
-      const data = await res.json();
-      setMediaPath(data.path);
-      return data.path as string;
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function uploadMediaIfNeeded(): Promise<string | undefined> {
-    if (!mediaFile) return undefined;
-    if (mediaPath) return mediaPath;
-    return uploadFile(mediaFile);
-  }
-
-  async function handleMediaSelected(file: File | null) {
-    setMediaPath(null);
-    setStyledPhotoPath(null);
-    setPhotoVariants([]);
-    if (!file) {
-      setMediaFile(null);
-      // Removing the photo resets the text-mode question so it's asked
-      // fresh for whatever gets uploaded next.
-      setTextModeChoice("auto");
-      setCustomText("");
-      return;
-    }
-    // Fresh phone-camera photos (especially iPhone) can be several MB and
-    // exceed Netlify's serverless function payload limit before our own
-    // code even runs, showing up as an unexplained 500. Shrinking client-side
-    // first sidesteps that regardless of the exact limit.
-    const compressed = await compressImageForUpload(file);
-    setMediaFile(compressed);
-    // Defaults to "auto", so a fresh upload just works immediately unless
-    // the customer had already picked "custom" and typed something.
-    if (textModeChoice !== "custom" || customText.trim()) {
-      runPhotoStyling(compressed, textModeChoice, customText);
-    }
-  }
-
-  async function runPhotoStyling(file: File, mode: TextMode, text?: string) {
-    setTextModeChoice(mode);
-    setStyledPhotoPath(null);
-    setPhotoVariants([]);
-    setStylingPhoto(true);
-    setError(null);
-    try {
-      const resolvedPath = mediaPath ?? (await uploadFile(file));
-      if (!resolvedPath) {
-        setError(tc("errorGeneric"));
-        return;
-      }
-      const filterRes = await fetch("/api/photo-filter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaPath: resolvedPath, campaignSlug, locale, textMode: mode, customText: text }),
-      });
-      if (filterRes.ok) {
-        const filterData = await filterRes.json();
-        const variants: string[] = filterData.variants ?? [];
-        if (filterData.filtered && variants.length > 1) {
-          // Let the customer pick their favorite of the 3 AI-styled options.
-          setPhotoVariants(variants);
-        } else if (filterData.filtered && variants.length === 1) {
-          setStyledPhotoPath(variants[0]);
-        }
-        // filtered:false with no error is a legitimate no-op (e.g. campaign
-        // has no brand color/logo configured) - mediaPath alone still works.
-      } else {
-        setError(tc("errorGeneric"));
-      }
-    } catch (err) {
-      // Previously uncaught here — on a slow/dropped mobile connection this
-      // silently reset stylingPhoto with no variants and no visible error,
-      // looking exactly like "the 3 photos just never show up". Appending
-      // the raw reason lets this get diagnosed from what the customer sees
-      // on screen alone, no devtools needed.
-      const message = err instanceof Error ? err.message : String(err);
-      setError(`${tc("errorGeneric")} (${message})`);
-    } finally {
-      setStylingPhoto(false);
-    }
-  }
-
-  function handleChoosePhotoVariant(path: string) {
-    setStyledPhotoPath(path);
-  }
-
-  async function handleBeautifyTest() {
-    if (!mediaPath) return;
-    setBeautifyTesting(true);
-    try {
-      const res = await fetch("/api/photo-beautify-test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mediaPath,
-          trendStyle: beautifyStyle,
-          captionText: beautifyCaption,
-          polaroid: beautifyPolaroid,
-          detailRestore: beautifyDetailRestore,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.filtered) setBeautifyTestPath(data.path as string);
-      }
-    } finally {
-      setBeautifyTesting(false);
-    }
-  }
-
-  async function handleFetchQuestions() {
-    // Gate on mediaPath (the upload actually succeeded), not mediaFile (a
-    // file was merely picked) — otherwise a failed upload still leaves
-    // mediaFile truthy once uploading resets to false, silently re-enabling
-    // Continue with no usable photo at all.
-    if (!mediaPath) return;
-    // Don't let a customer proceed with the un-styled raw photo just because
-    // they never tapped one of the 3 AI-styled options.
-    if (photoVariants.length > 0 && !styledPhotoPath) return;
-    setLoadingQuestions(true);
-    setError(null);
-    try {
-      const resolvedMediaPath = await uploadMediaIfNeeded();
-      const res = await fetch("/api/generate-questions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category, mediaPath: resolvedMediaPath, campaignSlug }),
-      });
-      if (res.status === 503) {
-        setAiUnavailable(true);
-        setError(tc("aiUnavailable"));
-        return;
-      }
-      if (!res.ok) throw new Error("failed");
-      const data = await res.json();
-      const questions: FollowUpQuestion[] = data.questions ?? [];
-      setFollowUpQuestions(questions);
-      setFollowUpAnswers(new Array(questions.length).fill(""));
-      setFollowUpIndex(0);
-      setQuestionsFetched(true);
-    } catch {
-      setError(tc("errorGeneric"));
-    } finally {
-      setLoadingQuestions(false);
-    }
-  }
-
-  async function callGenerate(nextHistory: ChatTurn[], resolvedMediaPath?: string) {
-    setLoading(true);
-    setError(null);
-    try {
-      const isAdaptive = questionMode === "AI_ADAPTIVE";
-      const qaPairs = isAdaptive
-        ? followUpQuestions.map((q, i) => ({
-            question: q.question,
-            answer: followUpAnswers[i] ?? "",
-          }))
-        : undefined;
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          platform,
-          identity: isAdaptive ? undefined : identity,
-          tone: isAdaptive ? undefined : tone,
-          style: isAdaptive ? undefined : style,
-          category: isAdaptive ? category : undefined,
-          qaPairs,
-          freeText,
-          commercial: true,
-          campaignSlug,
-          mediaPath: resolvedMediaPath ?? mediaPath ?? undefined,
-          history: nextHistory,
-          locale,
-        }),
-      });
-      if (res.status === 503) {
-        setAiUnavailable(true);
-        setError(tc("aiUnavailable"));
-        return;
-      }
-      if (!res.ok) throw new Error("generate failed");
-      const data = await res.json();
-      if (data.type === "question") {
-        setPendingQuestion({ content: data.content, suggestReupload: data.suggestReupload });
-        setHistory([...nextHistory, { role: "assistant", content: data.content }]);
-      } else {
-        setPendingQuestion(null);
-        setResult(data.content);
-        setTitleOptions(data.titles ?? []);
-        setChosenTitle(data.titles?.[0] ?? null);
-      }
-    } catch {
-      setError(tc("errorGeneric"));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleGenerate() {
-    if (!name.trim() || !isValidPhone(phone)) return;
-    // Don't let a customer proceed with the un-styled raw photo just because
-    // they never tapped one of the 3 AI-styled options.
-    if (photoVariants.length > 0 && !styledPhotoPath) return;
-    const resolvedMediaPath = await uploadMediaIfNeeded();
-    await callGenerate([], resolvedMediaPath);
-  }
-
-  async function handleClarifySubmit() {
-    if (!clarifyAnswer.trim()) return;
-    const nextHistory: ChatTurn[] = [...history, { role: "user", content: clarifyAnswer }];
-    setClarifyAnswer("");
-    await callGenerate(nextHistory);
-  }
-
-  function handleReupload() {
-    setPendingQuestion(null);
-    setHistory([]);
-    setClarifyAnswer("");
-    setMediaFile(null);
-    setMediaPath(null);
-    setStyledPhotoPath(null);
-    setPhotoVariants([]);
-    setTextModeChoice("auto");
-    setCustomText("");
-    if (questionMode === "FIXED") {
-      setPhotoStepConfirmed(false);
-    } else {
-      // AI_ADAPTIVE's photo step is gated by questionsFetched instead.
-      setQuestionsFetched(false);
-      setFollowUpQuestions([]);
-      setFollowUpAnswers([]);
-      setFollowUpIndex(0);
-    }
-  }
-
-  async function handleCopy() {
-    if (!result) return;
-    await navigator.clipboard.writeText(result);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  // Saves contact info as soon as it's available (before the customer has
-  // necessarily posted anything yet) so admin can see + follow up with
-  // people who generated a post but never came back with a link.
-  async function handleSaveDraft() {
-    try {
-      const res = await fetch("/api/submissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submissionId,
-          campaignSlug,
-          name,
-          phone,
-          mediaPath: styledPhotoPath ?? mediaPath,
-          photoVariants,
-          generatedContent: result,
-          titleVariants: titleOptions,
-          chosenTitle,
-        }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setSubmissionId(data.id ?? null);
-    } catch {
-      // Silent — this is a background convenience save, not a user action.
-    }
-  }
-
-  // As soon as both a photo style and a title are chosen, save a draft right
-  // away — even before the customer has scrolled down to give their name/
-  // phone — so admin visibility into "generated but never posted" isn't
-  // limited to people who got as far as the contact form.
-  useEffect(() => {
-    if (styledPhotoPath && chosenTitle) {
-      handleSaveDraft();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [styledPhotoPath, chosenTitle]);
-
-  async function handleSubmitLink() {
-    if (!name.trim() || !phone.trim() || !xhsLink.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/submissions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submissionId,
-          campaignSlug,
-          name,
-          phone,
-          mediaPath: styledPhotoPath ?? mediaPath,
-          photoVariants,
-          generatedContent: result,
-          titleVariants: titleOptions,
-          chosenTitle,
-          xhsLink,
-        }),
-      });
-      if (!res.ok) throw new Error("submit failed");
-      const data = await res.json();
-      setEntryCount(data.entryCount ?? null);
-      setSubmitted(true);
-    } catch {
-      setError(tc("errorGeneric"));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function handleGoToXHS() {
-    // window.open must be the very first thing that happens, synchronously,
-    // in direct response to the click — after any `await`, several browsers
-    // (especially mobile) no longer treat it as a user-initiated action and
-    // silently block the popup, leaving only the photo download visible and
-    // making it look like the button did nothing for XHS at all.
-    window.open("https://creator.xiaohongshu.com/publish/publish", "_blank");
-
-    const photoPath = styledPhotoPath ?? mediaPath;
-    if (photoPath) {
-      const a = document.createElement("a");
-      a.href = toDownloadUrl(photoPath);
-      a.download = "";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
-    if (result) {
-      navigator.clipboard.writeText(result).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
-    }
-  }
-
-  function handlePostAnother() {
-    setMediaFile(null);
-    setMediaPath(null);
-    setStyledPhotoPath(null);
-    setPhotoVariants([]);
-    setStylingPhoto(false);
-    setPhotoStepConfirmed(false);
-    setTitleOptions([]);
-    setChosenTitle(null);
-    setIdentity("");
-    setTone("");
-    setStyle("");
-    setFreeText("");
-    setXhsLink("");
-    setSubmissionId(null);
-    setCategory("");
-    setQuestionsFetched(false);
-    setFollowUpQuestions([]);
-    setFollowUpAnswers([]);
-    setFollowUpIndex(0);
-    setResult(null);
-    setHistory([]);
-    setPendingQuestion(null);
-    setClarifyAnswer("");
-    setSubmitted(false);
-    setError(null);
-    setAiUnavailable(false);
-    // For anonymous entry (no account), cleared unconditionally even for the
-    // same customer posting again — this is a form on a device that may be
-    // shared at a physical event, so contact info must never silently carry
-    // over to whoever uses it next. A logged-in account is tied to real
-    // authentication, not the device, so it's safe (and expected) to keep
-    // reusing it across posts in the same session.
-    setName(accountName ?? "");
-    setPhone(accountPhone ?? "");
-  }
-
-  if (submitted) {
-    return (
-      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <p className="rounded-lg bg-brand/10 p-4 text-sm text-brand">
-          {tc("submitted")}
-        </p>
-        {entryCount !== null && (
-          <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            {tc("entryCount", { count: entryCount })}
-          </p>
-        )}
-        <button
-          onClick={handlePostAnother}
-          className="mt-4 rounded-full border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-brand/10"
-        >
-          {tc("postAnother")}
-        </button>
-      </div>
-    );
-  }
-
-  if (pendingQuestion) {
-    return (
-      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <h2 className="text-lg font-semibold">{t("clarifyTitle")}</h2>
-        {/* Chat-style thread: the whole back-and-forth so far renders as a
-            growing conversation (received bubbles for the AI's questions,
-            sent bubbles for the customer's replies), like a WeChat/WhatsApp
-            chat, instead of replacing the last question each round. */}
-        {lockedPhotoPreview}
-        <div className="mt-4 flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
-          {history.map((turn, i) => (
-            <div key={i} className={`flex ${turn.role === "assistant" ? "justify-start" : "justify-end"}`}>
-              <div
-                className={
-                  turn.role === "assistant"
-                    ? "max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-4 py-2 text-sm text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
-                    : "max-w-[85%] rounded-2xl rounded-br-sm bg-brand px-4 py-2 text-sm text-white"
-                }
-              >
-                {turn.content}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {pendingQuestion.suggestReupload && (
-          <button
-            type="button"
-            onClick={handleReupload}
-            className="mt-3 rounded-full border border-brand px-4 py-2 text-xs font-medium text-brand hover:bg-brand/10"
-          >
-            {tc("reuploadPhoto")}
-          </button>
-        )}
-
-        <textarea
-          value={clarifyAnswer}
-          onChange={(e) => setClarifyAnswer(e.target.value)}
-          rows={2}
-          placeholder={tc("chatReplyPlaceholder")}
-          className="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-        />
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-        <button
-          onClick={handleClarifySubmit}
-          disabled={loading || aiUnavailable || !clarifyAnswer.trim()}
-          className={
-            aiUnavailable
-              ? "mt-3 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-              : "mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-          }
-        >
-          {loading ? tc("sendingReply") : tc("sendReply")}
-        </button>
-      </div>
-    );
-  }
-
-  if (result) {
-    const finalPhotoPath = styledPhotoPath ?? mediaPath;
-    return (
-      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <h2 className="text-xl font-semibold">{t("result")}</h2>
-        {finalPhotoPath && (
-          <div className="mt-4 flex flex-col items-center gap-2">
-            <Image
-              src={finalPhotoPath}
-              alt=""
-              width={240}
-              height={240}
-              className="max-h-72 w-auto rounded-lg border border-zinc-200 object-contain dark:border-zinc-800"
-            />
-            {styledPhotoPath && (
-              <a
-                href={toDownloadUrl(styledPhotoPath)}
-                download
-                className="text-xs font-medium text-brand underline"
-              >
-                {tc("downloadStyledPhoto")}
-              </a>
-            )}
-          </div>
-        )}
-        {titleOptions.length > 0 && (
-          <div className="mt-4">
-            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              {tc("chooseTitle")}
-            </p>
-            <div className="mt-2 flex flex-col gap-2">
-              {titleOptions.map((title) => (
-                <button
-                  key={title}
-                  type="button"
-                  onClick={() => setChosenTitle(title)}
-                  className={
-                    chosenTitle === title
-                      ? "rounded-lg border-2 border-brand bg-brand/5 px-3 py-2 text-left text-sm font-medium text-brand"
-                      : "rounded-lg border border-zinc-200 px-3 py-2 text-left text-sm hover:border-brand/50 dark:border-zinc-800"
-                  }
-                >
-                  {title}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className="mt-4 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950">
-          {result}
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            onClick={handleCopy}
-            className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
-          >
-            {copied ? t("copied") : t("copy")}
-          </button>
-          <button
-            onClick={handleGoToXHS}
-            className="rounded-full border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-brand/10"
-          >
-            {tc("goToXHS")}
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{tc("goToXHSHint")}</p>
-
-        <div className="mt-8 border-t border-zinc-200 pt-6 dark:border-zinc-800">
-          <h2 className="text-lg font-semibold">{tc("submitLink")}</h2>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {tc("submitAsLabel", { name, phone })}
-          </p>
-          <div className="mt-3 flex flex-col gap-3">
-            <input
-              value={xhsLink}
-              onChange={(e) => setXhsLink(e.target.value)}
-              placeholder={tc("linkPlaceholder")}
-              className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-            />
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button
-              onClick={handleSubmitLink}
-              disabled={submitting}
-              className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-            >
-              {tc("submit")}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Once 3 AI-styled variants come back, block progress until the customer
-  // taps one — otherwise they could answer all the questions and generate
-  // using the un-styled raw photo without ever seeing the styled options.
+  // taps one — otherwise they could continue using the un-styled raw photo
+  // without ever seeing the styled options. Declared here (before any early
+  // `return`) since the photo-step return further down needs it, and const
+  // declarations aren't hoisted the way function declarations are.
   const photoSelectionPending = photoVariants.length > 0 && !styledPhotoPath;
 
   const mediaField = (
@@ -1016,46 +428,734 @@ export function CommercialFlow({
     </div>
   );
 
+  // A "?resume=<id>" link (e.g. sent by customer service to someone who
+  // generated a post but never submitted their XHS link) jumps straight to
+  // wherever they left off instead of starting the whole flow over.
+  useEffect(() => {
+    if (!resumeSubmissionId) return;
+    fetch(`/api/submissions/${resumeSubmissionId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setSubmissionId(data.id);
+        setName(data.name ?? "");
+        setPhone(data.phone ?? "");
+        setMediaPath(data.mediaPath ?? null);
+        setPhotoVariants(data.photoVariants ?? []);
+        setResult(data.generatedContent ?? null);
+        setTitleOptions(data.titleVariants ?? []);
+        setChosenTitle(data.chosenTitle ?? data.titleVariants?.[0] ?? null);
+        setEditCount(data.editCount ?? 0);
+        setEditLimit(data.editLimit ?? DEFAULT_EDIT_LIMIT);
+        if (data.xhsLink) setXhsLink(data.xhsLink);
+        setContactConfirmed(true);
+        if (data.generatedContent) {
+          setContentStepConfirmed(true);
+          if (data.mediaPath) setPhotoStepConfirmed(true);
+        }
+      })
+      .catch(() => {
+        // Silent — worst case the customer just starts the normal flow instead.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeSubmissionId]);
+
+  async function uploadFile(file: File): Promise<string | undefined> {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        // Surface the real reason (e.g. "Unsupported file type", "File too
+        // large") instead of a generic message, so a failure is actionable
+        // from what the customer sees on screen alone, no devtools needed.
+        const body = await res.json().catch(() => null);
+        throw new Error(`upload_failed:${res.status}:${body?.error ?? "unknown"}`);
+      }
+      const data = await res.json();
+      setMediaPath(data.path);
+      return data.path as string;
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function uploadMediaIfNeeded(): Promise<string | undefined> {
+    if (!mediaFile) return undefined;
+    if (mediaPath) return mediaPath;
+    return uploadFile(mediaFile);
+  }
+
+  async function handleMediaSelected(file: File | null) {
+    setMediaPath(null);
+    setStyledPhotoPath(null);
+    setPhotoVariants([]);
+    if (!file) {
+      setMediaFile(null);
+      // Removing the photo resets the text-mode question so it's asked
+      // fresh for whatever gets uploaded next.
+      setTextModeChoice("auto");
+      setCustomText("");
+      return;
+    }
+    // Fresh phone-camera photos (especially iPhone) can be several MB and
+    // exceed Netlify's serverless function payload limit before our own
+    // code even runs, showing up as an unexplained 500. Shrinking client-side
+    // first sidesteps that regardless of the exact limit.
+    const compressed = await compressImageForUpload(file);
+    setMediaFile(compressed);
+    // Defaults to "auto", so a fresh upload just works immediately unless
+    // the customer had already picked "custom" and typed something.
+    if (textModeChoice !== "custom" || customText.trim()) {
+      runPhotoStyling(compressed, textModeChoice, customText);
+    }
+  }
+
+  async function runPhotoStyling(file: File, mode: TextMode, text?: string) {
+    setTextModeChoice(mode);
+    setStyledPhotoPath(null);
+    setPhotoVariants([]);
+    setStylingPhoto(true);
+    setError(null);
+    try {
+      const resolvedPath = mediaPath ?? (await uploadFile(file));
+      if (!resolvedPath) {
+        setError(tc("errorGeneric"));
+        return;
+      }
+      const filterRes = await fetch("/api/photo-filter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaPath: resolvedPath, campaignSlug, locale, textMode: mode, customText: text }),
+      });
+      if (filterRes.ok) {
+        const filterData = await filterRes.json();
+        const variants: string[] = filterData.variants ?? [];
+        if (filterData.filtered && variants.length > 1) {
+          // Let the customer pick their favorite of the 3 AI-styled options.
+          setPhotoVariants(variants);
+        } else if (filterData.filtered && variants.length === 1) {
+          setStyledPhotoPath(variants[0]);
+        }
+        // filtered:false with no error is a legitimate no-op (e.g. campaign
+        // has no brand color/logo configured) - mediaPath alone still works.
+      } else {
+        setError(tc("errorGeneric"));
+      }
+    } catch (err) {
+      // Previously uncaught here — on a slow/dropped mobile connection this
+      // silently reset stylingPhoto with no variants and no visible error,
+      // looking exactly like "the 3 photos just never show up". Appending
+      // the raw reason lets this get diagnosed from what the customer sees
+      // on screen alone, no devtools needed.
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`${tc("errorGeneric")} (${message})`);
+    } finally {
+      setStylingPhoto(false);
+    }
+  }
+
+  function handleChoosePhotoVariant(path: string) {
+    setStyledPhotoPath(path);
+  }
+
+  async function handleBeautifyTest() {
+    if (!mediaPath) return;
+    setBeautifyTesting(true);
+    try {
+      const res = await fetch("/api/photo-beautify-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mediaPath,
+          trendStyle: beautifyStyle,
+          captionText: beautifyCaption,
+          polaroid: beautifyPolaroid,
+          detailRestore: beautifyDetailRestore,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.filtered) setBeautifyTestPath(data.path as string);
+      }
+    } finally {
+      setBeautifyTesting(false);
+    }
+  }
+
+  async function handleContactContinue() {
+    if (!name.trim() || !isValidPhone(phone)) return;
+    setCheckingContact(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/submissions/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignSlug, name, phone }),
+      });
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      if (data.status === "blocked") {
+        setBlockedSubmission(data.submission);
+        return;
+      }
+      setSubmissionId(data.submission.id);
+      setEditCount(data.submission.editCount ?? 0);
+      setEditLimit(data.submission.editLimit ?? DEFAULT_EDIT_LIMIT);
+      if (data.status === "resume") {
+        setMediaPath(data.submission.mediaPath ?? null);
+        setPhotoVariants(data.submission.photoVariants ?? []);
+        setResult(data.submission.generatedContent ?? null);
+        setTitleOptions(data.submission.titleVariants ?? []);
+        setChosenTitle(data.submission.chosenTitle ?? data.submission.titleVariants?.[0] ?? null);
+        if (data.submission.generatedContent) {
+          setContentStepConfirmed(true);
+          if (data.submission.mediaPath) setPhotoStepConfirmed(true);
+        }
+      }
+      setContactConfirmed(true);
+    } catch {
+      setError(tc("errorGeneric"));
+    } finally {
+      setCheckingContact(false);
+    }
+  }
+
+  async function handleFetchQuestions() {
+    setLoadingQuestions(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/generate-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, campaignSlug }),
+      });
+      if (res.status === 503) {
+        setAiUnavailable(true);
+        setError(tc("aiUnavailable"));
+        return;
+      }
+      if (!res.ok) throw new Error("failed");
+      const data = await res.json();
+      const questions: FollowUpQuestion[] = data.questions ?? [];
+      setFollowUpQuestions(questions);
+      setFollowUpAnswers(new Array(questions.length).fill(""));
+      setFollowUpIndex(0);
+      setQuestionsFetched(true);
+    } catch {
+      setError(tc("errorGeneric"));
+    } finally {
+      setLoadingQuestions(false);
+    }
+  }
+
+  async function callGenerate(nextHistory: ChatTurn[], opts?: { isRegenerate?: boolean }) {
+    setLoading(true);
+    setError(null);
+    try {
+      const isAdaptive = questionMode === "AI_ADAPTIVE";
+      const qaPairs = isAdaptive
+        ? followUpQuestions.map((q, i) => ({
+            question: q.question,
+            answer: followUpAnswers[i] ?? "",
+          }))
+        : undefined;
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform,
+          identity: isAdaptive ? undefined : identity,
+          tone: isAdaptive ? undefined : tone,
+          style: isAdaptive ? undefined : style,
+          category: isAdaptive ? category : undefined,
+          qaPairs,
+          freeText,
+          commercial: true,
+          campaignSlug,
+          // No photo yet at this point in the flow — content generation is
+          // about the customer's own feedback/experience, not tied to
+          // whatever they'll upload afterward.
+          history: nextHistory,
+          locale,
+          submissionId,
+          isRegenerate: opts?.isRegenerate ?? false,
+        }),
+      });
+      if (res.status === 429) {
+        const data = await res.json().catch(() => null);
+        setEditCount(data?.editCount ?? editLimit);
+        setError(tc("editLimitReachedHint"));
+        return;
+      }
+      if (res.status === 503) {
+        setAiUnavailable(true);
+        setError(tc("aiUnavailable"));
+        return;
+      }
+      if (!res.ok) throw new Error("generate failed");
+      const data = await res.json();
+      if (typeof data.editCount === "number") setEditCount(data.editCount);
+      if (typeof data.editLimit === "number") setEditLimit(data.editLimit);
+      if (data.type === "question") {
+        setPendingQuestion({ content: data.content, suggestReupload: data.suggestReupload });
+        setHistory([...nextHistory, { role: "assistant", content: data.content }]);
+      } else {
+        setPendingQuestion(null);
+        setResult(data.content);
+        setTitleOptions(data.titles ?? []);
+        setChosenTitle(data.titles?.[0] ?? null);
+      }
+    } catch {
+      setError(tc("errorGeneric"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGenerate() {
+    setHistory([]);
+    await callGenerate([]);
+  }
+
+  async function handleRegenerate() {
+    if (editCount >= editLimit) return;
+    setHistory([]);
+    await callGenerate([], { isRegenerate: true });
+  }
+
+  async function handleClarifySubmit() {
+    if (!clarifyAnswer.trim()) return;
+    const nextHistory: ChatTurn[] = [...history, { role: "user", content: clarifyAnswer }];
+    setClarifyAnswer("");
+    await callGenerate(nextHistory);
+  }
+
+  function handleReupload() {
+    setPendingQuestion(null);
+    setHistory([]);
+    setClarifyAnswer("");
+  }
+
+  async function handleCopy() {
+    if (!result) return;
+    await navigator.clipboard.writeText(result);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  // Saves progress as soon as there's something worth saving (content
+  // generated, and later the photo/title choice) so admin can see + follow
+  // up with people who generated a post but never came back with a link.
+  async function handleSaveDraft() {
+    try {
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submissionId,
+          campaignSlug,
+          name,
+          phone,
+          mediaPath: styledPhotoPath ?? mediaPath,
+          photoVariants,
+          generatedContent: result,
+          titleVariants: titleOptions,
+          chosenTitle,
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSubmissionId(data.id ?? null);
+    } catch {
+      // Silent — this is a background convenience save, not a user action.
+    }
+  }
+
+  useEffect(() => {
+    if (result) {
+      handleSaveDraft();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result, styledPhotoPath, chosenTitle]);
+
+  async function handleSubmitLink() {
+    if (!name.trim() || !phone.trim() || !xhsLink.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submissionId,
+          campaignSlug,
+          name,
+          phone,
+          mediaPath: styledPhotoPath ?? mediaPath,
+          photoVariants,
+          generatedContent: result,
+          titleVariants: titleOptions,
+          chosenTitle,
+          xhsLink,
+        }),
+      });
+      if (res.status === 409) {
+        setError(tc("alreadySubmittedHint"));
+        return;
+      }
+      if (!res.ok) throw new Error("submit failed");
+      setSubmitted(true);
+    } catch {
+      setError(tc("errorGeneric"));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleGoToXHS() {
+    // window.open must be the very first thing that happens, synchronously,
+    // in direct response to the click — after any `await`, several browsers
+    // (especially mobile) no longer treat it as a user-initiated action and
+    // silently block the popup, leaving only the photo download visible and
+    // making it look like the button did nothing for XHS at all.
+    window.open("https://creator.xiaohongshu.com/publish/publish", "_blank");
+
+    const photoPath = styledPhotoPath ?? mediaPath;
+    if (photoPath) {
+      const a = document.createElement("a");
+      a.href = toDownloadUrl(photoPath);
+      a.download = "";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+    if (result) {
+      navigator.clipboard.writeText(result).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <p className="rounded-lg bg-brand/10 p-4 text-sm text-brand">
+          {tc("submitted")}
+        </p>
+      </div>
+    );
+  }
+
+  if (blockedSubmission) {
+    return (
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 className="text-lg font-semibold">{tc("alreadySubmittedTitle")}</h2>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{tc("alreadySubmittedHint")}</p>
+        {blockedSubmission.mediaPath && (
+          <Image
+            src={blockedSubmission.mediaPath}
+            alt=""
+            width={160}
+            height={160}
+            className="mt-4 h-40 w-40 rounded-lg border border-zinc-200 object-cover dark:border-zinc-800"
+          />
+        )}
+        {blockedSubmission.xhsLink && (
+          <a
+            href={blockedSubmission.xhsLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 block text-sm text-brand underline"
+          >
+            {blockedSubmission.xhsLink}
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  if (!contactConfirmed) {
+    return (
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
+        <div className="mt-6 flex flex-col gap-3">
+          <label className="text-sm font-medium">
+            {accountName ? tc("contactAccountLabel") : tc("contactRequiredLabel")}
+          </label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={tc("namePlaceholder")}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+          />
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder={tc("phonePlaceholder")}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+          />
+          {phone.trim() && !isValidPhone(phone) && (
+            <p className="text-xs text-red-600">{tc("invalidPhone")}</p>
+          )}
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">{tc("oneEntryPerPhoneHint")}</p>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button
+            onClick={handleContactContinue}
+            disabled={checkingContact || !name.trim() || !isValidPhone(phone)}
+            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          >
+            {checkingContact ? tc("loadingQuestions") : tc("continueLabel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (pendingQuestion) {
+    return (
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 className="text-lg font-semibold">{t("clarifyTitle")}</h2>
+        {/* Chat-style thread: the whole back-and-forth so far renders as a
+            growing conversation (received bubbles for the AI's questions,
+            sent bubbles for the customer's replies), like a WeChat/WhatsApp
+            chat, instead of replacing the last question each round. */}
+        <div className="mt-4 flex max-h-[50vh] flex-col gap-2 overflow-y-auto">
+          {history.map((turn, i) => (
+            <div key={i} className={`flex ${turn.role === "assistant" ? "justify-start" : "justify-end"}`}>
+              <div
+                className={
+                  turn.role === "assistant"
+                    ? "max-w-[85%] rounded-2xl rounded-bl-sm bg-zinc-100 px-4 py-2 text-sm text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+                    : "max-w-[85%] rounded-2xl rounded-br-sm bg-brand px-4 py-2 text-sm text-white"
+                }
+              >
+                {turn.content}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {pendingQuestion.suggestReupload && (
+          <button
+            type="button"
+            onClick={handleReupload}
+            className="mt-3 rounded-full border border-brand px-4 py-2 text-xs font-medium text-brand hover:bg-brand/10"
+          >
+            {tc("reuploadPhoto")}
+          </button>
+        )}
+
+        <textarea
+          value={clarifyAnswer}
+          onChange={(e) => setClarifyAnswer(e.target.value)}
+          rows={2}
+          placeholder={tc("chatReplyPlaceholder")}
+          className="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        />
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        <button
+          onClick={handleClarifySubmit}
+          disabled={loading || aiUnavailable || !clarifyAnswer.trim()}
+          className={
+            aiUnavailable
+              ? "mt-3 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+              : "mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          }
+        >
+          {loading ? tc("sendingReply") : tc("sendReply")}
+        </button>
+      </div>
+    );
+  }
+
+  // Stage 2: content is generated — review it, optionally regenerate (capped
+  // at editLimit uses), then move on to the photo step.
+  if (result && !contentStepConfirmed) {
+    const editsRemaining = Math.max(0, editLimit - editCount);
+    return (
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 className="text-xl font-semibold">{tc("contentReviewTitle")}</h2>
+        {titleOptions.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{tc("chooseTitle")}</p>
+            <div className="mt-2 flex flex-col gap-2">
+              {titleOptions.map((title) => (
+                <button
+                  key={title}
+                  type="button"
+                  onClick={() => setChosenTitle(title)}
+                  className={
+                    chosenTitle === title
+                      ? "rounded-lg border-2 border-brand bg-brand/5 px-3 py-2 text-left text-sm font-medium text-brand"
+                      : "rounded-lg border border-zinc-200 px-3 py-2 text-left text-sm hover:border-brand/50 dark:border-zinc-800"
+                  }
+                >
+                  {title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="mt-4 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+          {result}
+        </div>
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={handleRegenerate}
+            disabled={loading || aiUnavailable || editCount >= editLimit}
+            className="rounded-full border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-brand/10 disabled:opacity-50"
+          >
+            {loading ? tc("regenerating") : tc("regenerate")}
+          </button>
+          <button
+            onClick={() => setContentStepConfirmed(true)}
+            className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            {tc("continueToPhoto")}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          {editCount >= editLimit ? tc("editLimitReachedHint") : tc("editCountRemaining", { remaining: editsRemaining })}
+        </p>
+      </div>
+    );
+  }
+
+  // Stage 3: photo upload + AI beautify — now the last step before the
+  // final combined result, decoupled from the written content above.
+  if (result && contentStepConfirmed && !photoStepConfirmed) {
+    return (
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 className="text-xl font-semibold">{tc("photoStepTitle")}</h2>
+        <div className="mt-6 flex flex-col gap-5">
+          {mediaField}
+
+          {!mediaPath && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">{tc("stepMediaRequiredHint")}</p>
+          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <button
+            type="button"
+            onClick={() => setPhotoStepConfirmed(true)}
+            disabled={!mediaPath || photoSelectionPending || stylingPhoto || uploading}
+            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          >
+            {tc("continueLabel")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (result && contentStepConfirmed && photoStepConfirmed) {
+    const finalPhotoPath = styledPhotoPath ?? mediaPath;
+    return (
+      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h2 className="text-xl font-semibold">{t("result")}</h2>
+        {finalPhotoPath && (
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <Image
+              src={finalPhotoPath}
+              alt=""
+              width={240}
+              height={240}
+              className="max-h-72 w-auto rounded-lg border border-zinc-200 object-contain dark:border-zinc-800"
+            />
+            {styledPhotoPath && (
+              <a
+                href={toDownloadUrl(styledPhotoPath)}
+                download
+                className="text-xs font-medium text-brand underline"
+              >
+                {tc("downloadStyledPhoto")}
+              </a>
+            )}
+          </div>
+        )}
+        <div className="mt-4 whitespace-pre-wrap rounded-lg border border-zinc-200 bg-white p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+          {result}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={handleCopy}
+            className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
+          >
+            {copied ? t("copied") : t("copy")}
+          </button>
+          <button
+            onClick={handleGoToXHS}
+            className="rounded-full border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-brand/10"
+          >
+            {tc("goToXHS")}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{tc("goToXHSHint")}</p>
+
+        <div className="mt-8 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+          <h2 className="text-lg font-semibold">{tc("submitLink")}</h2>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {tc("submitAsLabel", { name, phone })}
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            <input
+              value={xhsLink}
+              onChange={(e) => setXhsLink(e.target.value)}
+              placeholder={tc("linkPlaceholder")}
+              className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            />
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <button
+              onClick={handleSubmitLink}
+              disabled={submitting}
+              className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+            >
+              {tc("submit")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (questionMode === "AI_ADAPTIVE" && !questionsFetched) {
     return (
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
         <div className="mt-6 flex flex-col gap-5">
-          {mediaField}
+          <div>
+            <label className="text-sm font-medium">{tc("category")}</label>
+            <div className="mt-2">
+              <ChoiceGroupWithOther
+                options={categoryOptions}
+                otherLabel={otherLabel}
+                otherPlaceholder={tc("otherPlaceholder")}
+                value={category}
+                onChange={setCategory}
+              />
+            </div>
+          </div>
 
-          {!photoSelectionPending && (
-            <>
-              <div>
-                <label className="text-sm font-medium">{tc("category")}</label>
-                <div className="mt-2">
-                  <ChoiceGroupWithOther
-                    options={categoryOptions}
-                    otherLabel={otherLabel}
-                    otherPlaceholder={tc("otherPlaceholder")}
-                    value={category}
-                    onChange={setCategory}
-                  />
-                </div>
-              </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
-
-              {!mediaPath && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">{tc("stepMediaRequiredHint")}</p>
-              )}
-              <button
-                onClick={handleFetchQuestions}
-                disabled={loadingQuestions || uploading || !category || !mediaPath || aiUnavailable}
-                className={
-                  aiUnavailable
-                    ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-                    : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-                }
-              >
-                {loadingQuestions ? tc("loadingQuestions") : tc("continueLabel")}
-              </button>
-            </>
-          )}
+          <button
+            onClick={handleFetchQuestions}
+            disabled={loadingQuestions || !category || aiUnavailable}
+            className={
+              aiUnavailable
+                ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+                : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+            }
+          >
+            {loadingQuestions ? tc("loadingQuestions") : tc("continueLabel")}
+          </button>
         </div>
       </div>
     );
@@ -1071,7 +1171,6 @@ export function CommercialFlow({
       <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
         <div className="mt-4 flex flex-col gap-3">
-          {lockedPhotoPreview}
           {/* Chat-style thread: every question already asked shows as a
               received bubble, with the customer's picked answer as a sent
               bubble right after it — reads like a conversation instead of a
@@ -1121,140 +1220,88 @@ export function CommercialFlow({
     );
   }
 
-  if (questionMode === "FIXED" && !photoStepConfirmed) {
-    return (
-      <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
-        <div className="mt-6 flex flex-col gap-5">
-          {mediaField}
-
-          {!mediaPath && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">{tc("stepMediaRequiredHint")}</p>
-          )}
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <button
-            type="button"
-            onClick={() => setPhotoStepConfirmed(true)}
-            disabled={!mediaPath || photoSelectionPending || stylingPhoto || uploading}
-            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-          >
-            {tc("continueLabel")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // Stage 1 (FIXED mode, or AI_ADAPTIVE once its follow-up questions are
+  // answered): the written feedback itself — no photo involved at all.
   return (
     <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <h2 className="text-xl font-semibold">{tc("questionnaireTitle")}</h2>
       <div className="mt-6 flex flex-col gap-5">
-        {lockedPhotoPreview}
-        {!photoSelectionPending && (
+        {questionMode === "FIXED" && (
           <>
-            {questionMode === "FIXED" && (
-              <>
-                <div>
-                  <label className="text-sm font-medium">
-                    {identityQuestion || tc("identity")}
-                  </label>
-                  <div className="mt-2">
-                    <ChoiceGroupWithOther
-                      options={identityOptions}
-                      otherLabel={identityOtherLabel}
-                      otherPlaceholder={tc("otherPlaceholder")}
-                      value={identity}
-                      onChange={setIdentity}
-                      multiple={identityMultiSelect}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">
-                    {toneQuestion || tc("tone")}
-                  </label>
-                  <div className="mt-2">
-                    <ChoiceGroupWithOther
-                      options={toneOptions}
-                      otherLabel={toneOtherLabel}
-                      otherPlaceholder={tc("otherPlaceholder")}
-                      value={tone}
-                      onChange={setTone}
-                      multiple={toneMultiSelect}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">
-                    {styleQuestion || tc("style")}
-                  </label>
-                  <div className="mt-2">
-                    <ChoiceGroupWithOther
-                      options={styleOptions}
-                      otherLabel={styleOtherLabel}
-                      otherPlaceholder={tc("otherPlaceholder")}
-                      value={style}
-                      onChange={setStyle}
-                      multiple={styleMultiSelect}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
             <div>
-              <label className="text-sm font-medium">{tc("freeText")}</label>
-              <textarea
-                value={freeText}
-                onChange={(e) => setFreeText(e.target.value)}
-                placeholder={tc("freeTextPlaceholder")}
-                rows={3}
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-              />
+              <label className="text-sm font-medium">
+                {identityQuestion || tc("identity")}
+              </label>
+              <div className="mt-2">
+                <ChoiceGroupWithOther
+                  options={identityOptions}
+                  otherLabel={identityOtherLabel}
+                  otherPlaceholder={tc("otherPlaceholder")}
+                  value={identity}
+                  onChange={setIdentity}
+                  multiple={identityMultiSelect}
+                />
+              </div>
             </div>
 
             <div>
               <label className="text-sm font-medium">
-                {accountName ? tc("contactAccountLabel") : tc("contactRequiredLabel")}
+                {toneQuestion || tc("tone")}
               </label>
-              <div className="mt-2 flex flex-col gap-3">
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={tc("namePlaceholder")}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              <div className="mt-2">
+                <ChoiceGroupWithOther
+                  options={toneOptions}
+                  otherLabel={toneOtherLabel}
+                  otherPlaceholder={tc("otherPlaceholder")}
+                  value={tone}
+                  onChange={setTone}
+                  multiple={toneMultiSelect}
                 />
-                <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  onBlur={handleSaveDraft}
-                  placeholder={tc("phonePlaceholder")}
-                  className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-                />
-                {phone.trim() && !isValidPhone(phone) && (
-                  <p className="text-xs text-red-600">{tc("invalidPhone")}</p>
-                )}
               </div>
             </div>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            <button
-              onClick={handleGenerate}
-              disabled={loading || uploading || aiUnavailable || !name.trim() || !isValidPhone(phone)}
-              className={
-                aiUnavailable
-                  ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-                  : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-              }
-            >
-              {loading || uploading ? t("generating") : t("generate")}
-            </button>
+            <div>
+              <label className="text-sm font-medium">
+                {styleQuestion || tc("style")}
+              </label>
+              <div className="mt-2">
+                <ChoiceGroupWithOther
+                  options={styleOptions}
+                  otherLabel={styleOtherLabel}
+                  otherPlaceholder={tc("otherPlaceholder")}
+                  value={style}
+                  onChange={setStyle}
+                  multiple={styleMultiSelect}
+                />
+              </div>
+            </div>
           </>
         )}
+
+        <div>
+          <label className="text-sm font-medium">{tc("freeText")}</label>
+          <textarea
+            value={freeText}
+            onChange={(e) => setFreeText(e.target.value)}
+            placeholder={tc("freeTextPlaceholder")}
+            rows={3}
+            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <button
+          onClick={handleGenerate}
+          disabled={loading || aiUnavailable}
+          className={
+            aiUnavailable
+              ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+              : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+          }
+        >
+          {loading ? t("generating") : t("generate")}
+        </button>
       </div>
     </div>
   );

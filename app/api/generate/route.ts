@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
     mediaPath,
     history,
     locale,
+    submissionId,
+    isRegenerate,
   }: {
     platform: "XHS" | "INSTAGRAM";
     identity?: string;
@@ -38,7 +40,32 @@ export async function POST(req: NextRequest) {
     mediaPath?: string;
     history?: ChatTurn[];
     locale?: "en" | "zh";
+    /** Ties this call to a CommercialSubmission row so edit-count tracking
+     * applies - only meaningful when commercial=true. */
+    submissionId?: string;
+    /** Set only for the explicit "regenerate this post" action on the
+     * result screen - the first generation and clarification-chat replies
+     * never set this, so they don't count against the edit cap. */
+    isRegenerate?: boolean;
   } = body;
+
+  const DEFAULT_EDIT_LIMIT = 3;
+  let editCount: number | undefined;
+  let editLimit: number | undefined;
+  if (commercial && submissionId) {
+    const submission = await prisma.commercialSubmission.findUnique({
+      where: { id: submissionId },
+      select: { editCount: true, editLimitOverride: true },
+    });
+    editCount = submission?.editCount ?? 0;
+    editLimit = submission?.editLimitOverride ?? DEFAULT_EDIT_LIMIT;
+    if (isRegenerate && editCount >= editLimit) {
+      return NextResponse.json(
+        { error: "edit_limit_exceeded", editCount, editLimit },
+        { status: 429 },
+      );
+    }
+  }
 
   let session = null;
   if (!commercial) {
@@ -137,5 +164,16 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json(result);
+  if (commercial && submissionId && result.type === "result" && isRegenerate) {
+    const updated = await prisma.commercialSubmission.update({
+      where: { id: submissionId },
+      data: { editCount: { increment: 1 } },
+      select: { editCount: true },
+    });
+    editCount = updated.editCount;
+  }
+
+  return NextResponse.json(
+    commercial && submissionId ? { ...result, editCount, editLimit } : result,
+  );
 }

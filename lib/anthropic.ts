@@ -248,11 +248,10 @@ export async function generateContent(
   return { type: "result", content: raw };
 }
 
-const FOLLOW_UP_SYSTEM_PROMPT = `You look at a photo and a chosen category, then write 1-2 short multiple-choice follow-up questions to help understand the photo better before writing a social media post about it.
+const FOLLOW_UP_SYSTEM_PROMPT = `You take a product/experience category, and optionally a brand/product to promote, and write 1-2 short multiple-choice follow-up questions that draw out the customer's genuine feedback/experience before writing a social media post about it. The customer has NOT uploaded a photo at this point in the flow — never reference, assume, or ask about a photo.
 
 Rules:
-- Base the questions on what is actually visible in the photo, not generic questions.
-- If a brand/product name or description is given in the context, and the photo does NOT plausibly connect to it (e.g. the brand sells skincare but the photo shows a car, with no visible link), this takes priority over generic questions: one of your questions must ask the customer to explain the connection themselves (e.g. "这张照片和 X 有什么关系呢？" / "How does this photo relate to X?"), with 3 short plausible-connection options plus room for their own answer. Do not just guess a connection or ignore the mismatch.
+- Ask about their actual opinion/experience with the category (and the brand/product, if given) — e.g. what stood out, what they liked or didn't, how it compares to what they expected — not generic filler questions.
 - At most 2 questions. Each question needs exactly 3 short answer options (a few words each).
 - Write the question and options in the same language as the category label given to you.
 - Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
@@ -261,7 +260,7 @@ Rules:
 function buildTemplateQuestions(category: string): FollowUpQuestion[] {
   return [
     {
-      question: `关于这张${category}照片，想多分享一点？(演示)`,
+      question: `关于${category}，想多分享一点你的感受？(演示)`,
       options: ["细节A", "细节B", "细节C"],
     },
   ];
@@ -269,8 +268,6 @@ function buildTemplateQuestions(category: string): FollowUpQuestion[] {
 
 export async function generateFollowUpQuestions(input: {
   category: string;
-  imageBase64?: string;
-  imageMediaType?: string;
   brandName?: string;
   productDescription?: string;
 }): Promise<FollowUpQuestion[]> {
@@ -284,30 +281,11 @@ export async function generateFollowUpQuestions(input: {
     input.productDescription ? `Product/brand description: ${input.productDescription}` : null,
   ].filter(Boolean);
 
-  const userContent: Anthropic.MessageParam["content"] = [
-    { type: "text", text: contextLines.join("\n") },
-  ];
-
-  if (input.imageBase64 && input.imageMediaType) {
-    userContent.unshift({
-      type: "image",
-      source: {
-        type: "base64",
-        media_type: input.imageMediaType as
-          | "image/jpeg"
-          | "image/png"
-          | "image/gif"
-          | "image/webp",
-        data: input.imageBase64,
-      },
-    });
-  }
-
   const response = await createMessage({
     model: MODEL,
     max_tokens: 512,
     system: FOLLOW_UP_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userContent }],
+    messages: [{ role: "user", content: contextLines.join("\n") }],
   });
 
   const textBlock = response.content.find((block) => block.type === "text");

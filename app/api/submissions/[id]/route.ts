@@ -24,6 +24,8 @@ export async function GET(
       titleVariants: true,
       chosenTitle: true,
       xhsLink: true,
+      editCount: true,
+      editLimitOverride: true,
       campaign: { select: { slug: true } },
     },
   });
@@ -42,6 +44,8 @@ export async function GET(
     titleVariants: submission.titleVariants ? JSON.parse(submission.titleVariants) : [],
     chosenTitle: submission.chosenTitle,
     xhsLink: submission.xhsLink,
+    editCount: submission.editCount,
+    editLimit: submission.editLimitOverride ?? 3,
     campaignSlug: submission.campaign.slug,
   });
 }

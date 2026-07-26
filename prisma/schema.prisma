@@ -118,5 +118,15 @@ model CommercialSubmission {
   chosenTitle      String?
   xhsLink          String?
   status           SubmissionStatus @default(DRAFT)
+  // Counts uses of the "regenerate this post" action (not the first
+  // generation, and not clarification-chat replies) - capped client-side at
+  // editLimitOverride ?? 3 to bound Anthropic API spend per participant.
+  editCount        Int              @default(0)
+  // Set by an admin to grant a specific phone/submission more edits than the
+  // default 3, or to raise the cap after a reset - null means "use the
+  // default limit".
+  editLimitOverride Int?
   createdAt        DateTime         @default(now())
+
+  @@index([campaignId, phone])
 }

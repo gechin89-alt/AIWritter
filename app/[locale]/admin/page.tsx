@@ -15,6 +15,7 @@ import { CampaignPhotoTest } from "@/components/campaign-photo-test";
 import { NotifyUserButton } from "@/components/notify-user-button";
 import { UserQuotaEditor } from "@/components/user-quota-editor";
 import { AdminResetPasswordButton } from "@/components/admin-reset-password-button";
+import { AdminEditLimitControl } from "@/components/admin-edit-limit-control";
 import { effectivePostLimit } from "@/lib/quota";
 
 // Temporary admin photo-test button — hidden for now per request, code kept
@@ -350,6 +351,13 @@ export default async function AdminPage({
                       {s.xhsLink}
                     </a>
                   )}
+                  <div className="mt-2">
+                    <AdminEditLimitControl
+                      submissionId={s.id}
+                      editCount={s.editCount}
+                      editLimitOverride={s.editLimitOverride}
+                    />
+                  </div>
                   {notPosted && s.phone && (
                     <div className="mt-2">
                       <NotifyUserButton
@@ -375,6 +383,7 @@ export default async function AdminPage({
                     <th className="px-3 py-2">{t("subTitle")}</th>
                     <th className="px-3 py-2">{t("subLink")}</th>
                     <th className="px-3 py-2">{t("subStatus")}</th>
+                    <th className="px-3 py-2">{t("subEdits")}</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -427,6 +436,13 @@ export default async function AdminPage({
                       </td>
                       <td className="px-3 py-2">
                         <span className={statusBadgeClass(notPosted)}>{s.status}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <AdminEditLimitControl
+                          submissionId={s.id}
+                          editCount={s.editCount}
+                          editLimitOverride={s.editLimitOverride}
+                        />
                       </td>
                       <td className="px-3 py-2">
                         {notPosted && s.phone && (
