@@ -19,6 +19,17 @@ const SHOW_BEAUTIFY_TEST_PANEL = false;
 
 const DEFAULT_EDIT_LIMIT = 3;
 
+// A real finished post always includes hashtags (the AI prompt requires
+// 3-5). A model reliability issue occasionally saved a clarifying question
+// into generatedContent instead of a real post before this was caught
+// server-side - resuming that stale row would otherwise get permanently
+// stuck showing a question as if it were the finished content, since
+// resuming trusts whatever's already in the database. Treat hashtag-less
+// saved content as if no content exists yet.
+function looksLikeRealPost(content: string | null | undefined): boolean {
+  return typeof content === "string" && content.includes("#");
+}
+
 // Loose on purpose: customers may be from different countries and type
 // spaces/dashes/a leading "+", so this only rejects obviously-wrong input
 // (letters, way too short/long) rather than enforcing one country's format.
@@ -437,19 +448,20 @@ export function CommercialFlow({
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!data) return;
+        const validContent = looksLikeRealPost(data.generatedContent) ? data.generatedContent : null;
         setSubmissionId(data.id);
         setName(data.name ?? "");
         setPhone(data.phone ?? "");
         setMediaPath(data.mediaPath ?? null);
         setPhotoVariants(data.photoVariants ?? []);
-        setResult(data.generatedContent ?? null);
+        setResult(validContent);
         setTitleOptions(data.titleVariants ?? []);
         setChosenTitle(data.chosenTitle ?? data.titleVariants?.[0] ?? null);
         setEditCount(data.editCount ?? 0);
         setEditLimit(data.editLimit ?? DEFAULT_EDIT_LIMIT);
         if (data.xhsLink) setXhsLink(data.xhsLink);
         setContactConfirmed(true);
-        if (data.generatedContent) {
+        if (validContent) {
           setContentStepConfirmed(true);
           if (data.mediaPath) setPhotoStepConfirmed(true);
         }
@@ -607,12 +619,15 @@ export function CommercialFlow({
       setEditCount(data.submission.editCount ?? 0);
       setEditLimit(data.submission.editLimit ?? DEFAULT_EDIT_LIMIT);
       if (data.status === "resume") {
+        const validContent = looksLikeRealPost(data.submission.generatedContent)
+          ? data.submission.generatedContent
+          : null;
         setMediaPath(data.submission.mediaPath ?? null);
         setPhotoVariants(data.submission.photoVariants ?? []);
-        setResult(data.submission.generatedContent ?? null);
+        setResult(validContent);
         setTitleOptions(data.submission.titleVariants ?? []);
         setChosenTitle(data.submission.chosenTitle ?? data.submission.titleVariants?.[0] ?? null);
-        if (data.submission.generatedContent) {
+        if (validContent) {
           setContentStepConfirmed(true);
           if (data.submission.mediaPath) setPhotoStepConfirmed(true);
         }
