@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 import { CommercialFlow } from "@/components/commercial-flow";
 import { PrizeCards } from "@/components/prize-cards";
 
@@ -43,6 +44,18 @@ export default async function CommercialCampaignPage({
   if (!campaign || !campaign.active) {
     notFound();
   }
+
+  // If the visitor happens to be logged in (e.g. they also use the
+  // individual/self-serve flow), pre-fill the contact step from their real
+  // account instead of asking again. Most visitors arrive anonymously via
+  // the campaign QR code and never hit this — that path is unaffected.
+  const session = await getSession();
+  const account = session
+    ? await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { name: true, phone: true },
+      })
+    : null;
 
   return (
     <div className="relative flex flex-1 flex-col items-center overflow-hidden px-4 py-10 sm:px-6">
@@ -104,6 +117,8 @@ export default async function CommercialCampaignPage({
           toneMultiSelect={campaign.toneMultiSelect}
           styleMultiSelect={campaign.styleMultiSelect}
           resumeSubmissionId={resume}
+          accountName={account?.name}
+          accountPhone={account?.phone}
         />
       </div>
     </div>

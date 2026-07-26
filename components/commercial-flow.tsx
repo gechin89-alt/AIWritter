@@ -41,6 +41,8 @@ export function CommercialFlow({
   toneMultiSelect,
   styleMultiSelect,
   resumeSubmissionId,
+  accountName,
+  accountPhone,
 }: {
   campaignSlug: string;
   questionMode?: "FIXED" | "AI_ADAPTIVE";
@@ -60,6 +62,13 @@ export function CommercialFlow({
    * straight to the result/submit-link screen for an existing draft instead
    * of starting the whole photo+questions flow over. */
   resumeSubmissionId?: string;
+  /** Set when the visitor is logged into an account (e.g. they also use the
+   * individual/self-serve flow) — pre-fills the contact step instead of
+   * asking again, since it's tied to a real authenticated account rather
+   * than a shared device. Anonymous visitors (the common case, scanned from
+   * a campaign QR code) still get the plain manual fields. */
+  accountName?: string;
+  accountPhone?: string;
 }) {
   const t = useTranslations("individual");
   const tc = useTranslations("commercial");
@@ -138,8 +147,8 @@ export function CommercialFlow({
   const [error, setError] = useState<string | null>(null);
   const [aiUnavailable, setAiUnavailable] = useState(false);
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(accountName ?? "");
+  const [phone, setPhone] = useState(accountPhone ?? "");
   const [xhsLink, setXhsLink] = useState("");
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -578,11 +587,14 @@ export function CommercialFlow({
     setSubmitted(false);
     setError(null);
     setAiUnavailable(false);
-    // Cleared unconditionally, even for the same customer posting again —
-    // this is a form on a device that may be shared at a physical event, so
-    // contact info must never silently carry over to whoever uses it next.
-    setName("");
-    setPhone("");
+    // For anonymous entry (no account), cleared unconditionally even for the
+    // same customer posting again — this is a form on a device that may be
+    // shared at a physical event, so contact info must never silently carry
+    // over to whoever uses it next. A logged-in account is tied to real
+    // authentication, not the device, so it's safe (and expected) to keep
+    // reusing it across posts in the same session.
+    setName(accountName ?? "");
+    setPhone(accountPhone ?? "");
   }
 
   if (submitted) {
@@ -1205,7 +1217,9 @@ export function CommercialFlow({
             </div>
 
             <div>
-              <label className="text-sm font-medium">{tc("contactRequiredLabel")}</label>
+              <label className="text-sm font-medium">
+                {accountName ? tc("contactAccountLabel") : tc("contactRequiredLabel")}
+              </label>
               <div className="mt-2 flex flex-col gap-3">
                 <input
                   value={name}

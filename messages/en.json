@@ -155,6 +155,7 @@
     "phonePlaceholder": "Phone",
     "invalidPhone": "Please enter a valid phone number",
     "contactRequiredLabel": "Enter your name and phone number to generate the post",
+    "contactAccountLabel": "Filled in from your account — edit if this isn't right for this entry",
     "submitAsLabel": "Submitting as {name} ({phone})",
     "submit": "Submit for the lucky draw",
     "submitted": "Thanks! Your entry has been recorded.",
