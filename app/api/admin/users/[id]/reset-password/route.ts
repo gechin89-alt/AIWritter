@@ -20,13 +20,20 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { newPassword }: { newPassword?: string } = await req.json().catch(() => ({}));
+  if (newPassword !== undefined && newPassword.trim().length < 6) {
+    return NextResponse.json({ error: "Password too short" }, { status: 400 });
+  }
+
   const { id } = await params;
-  const tempPassword = generateTempPassword();
+  const tempPassword = newPassword?.trim() || generateTempPassword();
   const passwordHash = await hashPassword(tempPassword);
 
   await prisma.user.update({ where: { id }, data: { passwordHash } });
 
   // Only ever returned once, right after generation — not stored anywhere
-  // in plaintext, same as a normal password.
+  // in plaintext, same as a normal password. When the admin chose the
+  // password themselves they already know it, but returning it too keeps
+  // this response shape uniform for the client.
   return NextResponse.json({ tempPassword });
 }
