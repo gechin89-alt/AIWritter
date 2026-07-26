@@ -316,7 +316,11 @@ export function CommercialFlow({
   }
 
   async function handleFetchQuestions() {
-    if (!mediaFile) return;
+    // Gate on mediaPath (the upload actually succeeded), not mediaFile (a
+    // file was merely picked) — otherwise a failed upload still leaves
+    // mediaFile truthy once uploading resets to false, silently re-enabling
+    // Continue with no usable photo at all.
+    if (!mediaPath) return;
     // Don't let a customer proceed with the un-styled raw photo just because
     // they never tapped one of the 3 AI-styled options.
     if (photoVariants.length > 0 && !styledPhotoPath) return;
@@ -1017,12 +1021,12 @@ export function CommercialFlow({
 
               {error && <p className="text-sm text-red-600">{error}</p>}
 
-              {!mediaFile && (
+              {!mediaPath && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">{tc("stepMediaRequiredHint")}</p>
               )}
               <button
                 onClick={handleFetchQuestions}
-                disabled={loadingQuestions || uploading || !category || !mediaFile || aiUnavailable}
+                disabled={loadingQuestions || uploading || !category || !mediaPath || aiUnavailable}
                 className={
                   aiUnavailable
                     ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
@@ -1105,7 +1109,7 @@ export function CommercialFlow({
         <div className="mt-6 flex flex-col gap-5">
           {mediaField}
 
-          {!mediaFile && (
+          {!mediaPath && (
             <p className="text-xs text-amber-600 dark:text-amber-400">{tc("stepMediaRequiredHint")}</p>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -1113,7 +1117,7 @@ export function CommercialFlow({
           <button
             type="button"
             onClick={() => setPhotoStepConfirmed(true)}
-            disabled={!mediaFile || photoSelectionPending || stylingPhoto || uploading}
+            disabled={!mediaPath || photoSelectionPending || stylingPhoto || uploading}
             className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {tc("continueLabel")}
