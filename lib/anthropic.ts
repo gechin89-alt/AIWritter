@@ -263,6 +263,15 @@ export async function generateContent(
     (parsed.type === "question" || parsed.type === "result") &&
     typeof parsed.content === "string"
   ) {
+    // Defense against an observed model reliability issue: it occasionally
+    // mislabels a follow-up question as "result", especially right after a
+    // regenerate call. A real finished post always contains at least one
+    // hashtag (the prompt requires 3-5), so "result" content with none at
+    // all is almost certainly a mislabeled question - re-typed here rather
+    // than showing half a question to the customer as if it were their post.
+    if (parsed.type === "result" && !parsed.content.includes("#")) {
+      return { type: "question", content: parsed.content, suggestReupload: false };
+    }
     if (parsed.type === "result") {
       const titles = Array.isArray(parsed.titles)
         ? parsed.titles.filter((t): t is string => typeof t === "string" && t.trim().length > 0)
