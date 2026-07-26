@@ -153,6 +153,7 @@
     "loadingQuestions": "Generating your questions...",
     "submitLink": "Submit your post link",
     "linkPlaceholder": "Paste your Xiaohongshu post link here",
+    "invalidLinkVoidsEntryHint": "Make sure the link is valid and opens correctly — an invalid link will automatically void your lucky draw entry.",
     "namePlaceholder": "Name",
     "phonePlaceholder": "Phone",
     "invalidPhone": "Please enter a valid phone number",

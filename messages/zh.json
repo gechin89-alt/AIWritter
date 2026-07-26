@@ -138,6 +138,7 @@
     "loadingQuestions": "AI 正在为你生成问题…",
     "submitLink": "提交你的帖子链接",
     "linkPlaceholder": "请粘贴你的小红书帖子链接",
+    "invalidLinkVoidsEntryHint": "请确保链接有效且可正常打开——如果链接无效，将自动取消抽奖资格。",
     "namePlaceholder": "姓名",
     "phonePlaceholder": "手机号码",
     "invalidPhone": "请填写有效的手机号码",

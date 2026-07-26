@@ -1111,6 +1111,7 @@ export function CommercialFlow({
               placeholder={tc("linkPlaceholder")}
               className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
             />
+            <p className="text-xs text-amber-600 dark:text-amber-400">{tc("invalidLinkVoidsEntryHint")}</p>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               onClick={handleSubmitLink}
