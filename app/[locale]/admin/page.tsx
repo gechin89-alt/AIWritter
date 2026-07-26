@@ -400,12 +400,12 @@ export default async function AdminPage({
                               <Image
                                 src={p}
                                 alt=""
-                                width={140}
-                                height={140}
+                                width={192}
+                                height={96}
                                 className={
                                   p === s.mediaPath
-                                    ? "h-36 w-36 rounded object-cover ring-2 ring-brand"
-                                    : "h-36 w-36 rounded object-cover"
+                                    ? "h-24 w-48 rounded object-cover ring-2 ring-brand"
+                                    : "h-24 w-48 rounded object-cover"
                                 }
                               />
                             </a>
