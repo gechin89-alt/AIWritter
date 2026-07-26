@@ -95,7 +95,13 @@ export function IndividualFlow({
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error("upload failed");
+      if (!res.ok) {
+        // Surface the real reason instead of a generic message, so a
+        // failure is actionable from what's on screen alone, no devtools
+        // needed.
+        const body = await res.json().catch(() => null);
+        throw new Error(`upload_failed:${res.status}:${body?.error ?? "unknown"}`);
+      }
       const data = await res.json();
       setMediaPath(data.path);
       return data.path as string;
@@ -157,10 +163,13 @@ export function IndividualFlow({
       } else {
         setError(t("errorGeneric"));
       }
-    } catch {
+    } catch (err) {
       // Previously uncaught here — on a slow/dropped mobile connection this
       // silently reset stylingPhoto with no variants and no visible error.
-      setError(t("errorGeneric"));
+      // Appending the raw reason makes this diagnosable from what the
+      // customer sees on screen alone, no devtools needed.
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`${t("errorGeneric")} (${message})`);
     } finally {
       setStylingPhoto(false);
     }

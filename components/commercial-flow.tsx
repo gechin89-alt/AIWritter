@@ -203,7 +203,13 @@ export function CommercialFlow({
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error("upload failed");
+      if (!res.ok) {
+        // Surface the real reason (e.g. "Unsupported file type", "File too
+        // large") instead of a generic message, so a failure is actionable
+        // from what the customer sees on screen alone, no devtools needed.
+        const body = await res.json().catch(() => null);
+        throw new Error(`upload_failed:${res.status}:${body?.error ?? "unknown"}`);
+      }
       const data = await res.json();
       setMediaPath(data.path);
       return data.path as string;
@@ -268,11 +274,14 @@ export function CommercialFlow({
       } else {
         setError(tc("errorGeneric"));
       }
-    } catch {
+    } catch (err) {
       // Previously uncaught here — on a slow/dropped mobile connection this
       // silently reset stylingPhoto with no variants and no visible error,
-      // looking exactly like "the 3 photos just never show up".
-      setError(tc("errorGeneric"));
+      // looking exactly like "the 3 photos just never show up". Appending
+      // the raw reason lets this get diagnosed from what the customer sees
+      // on screen alone, no devtools needed.
+      const message = err instanceof Error ? err.message : String(err);
+      setError(`${tc("errorGeneric")} (${message})`);
     } finally {
       setStylingPhoto(false);
     }

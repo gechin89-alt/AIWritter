@@ -347,8 +347,18 @@ function sanitizeHookText(text: string): string {
     .trim();
 }
 
-const PLACEMENT_RULES = `logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
-textPosition: "top" (upper third), "middle" (vertically centered), or "bottom" (lower area, above where the logo sits). First check: are there any faces anywhere in the photo (there may be more than one — a group photo, a couple, etc.)? Avoiding faces entirely is the top priority, overriding everything else — try all three positions and pick whichever one does NOT overlap ANY face. Only if a face is unavoidably large enough to overlap all three positions should you fall back to whichever position overlaps the fewest/smallest faces. If there's no face at all, just pick whichever region has the most open/plain background.`;
+const LOGO_POSITION_RULE = `logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).`;
+
+// Face-avoidance is done ONCE per photo (faceOverlap), not re-decided
+// per hook-text option — asking the model to re-judge the same photo's face
+// position 3 separate times (once per option) was measurably less reliable
+// than one judgment applied deterministically by code. See
+// resolveTextPositions() below.
+const FACE_OVERLAP_RULE = `Before anything else, look at the WHOLE photo once (this is the same regardless of the hook-text options below) and determine, for each of these 3 text bands, whether ANY face overlaps it (there may be more than one face — a group photo, a couple, etc. — a band counts as blocked if it overlaps any face at all, even partially):
+- "top": the upper third of the photo
+- "middle": vertically centered
+- "bottom": the lower area, above where a logo badge would sit
+Report this as "faceOverlap": {"top":bool,"middle":bool,"bottom":bool}. Also report "leastBadPosition": the one of the three that overlaps a face the LEAST (used only as a fallback if a face is so large it overlaps all three bands).`;
 
 const HOOK_TEXT_RULES = `one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).`;
 
@@ -357,24 +367,30 @@ const HOOK_TEXT_RULES = `one short line, or two lines if it reads naturally spli
 // visual variety across the 3 options instead of relying on the model to
 // naturally avoid picking similar moods. Claude only handles the parts that
 // benefit from actually looking at the photo: the hook text and logo corner.
-const PHOTO_STYLING_SYSTEM_PROMPT_AUTO = `You are a social media copywriter looking at a customer's photo for a brand's post. Propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording AND placement meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide:
+const PHOTO_STYLING_SYSTEM_PROMPT_AUTO = `You are a social media copywriter looking at a customer's photo for a brand's post.
+
+${FACE_OVERLAP_RULE}
+
+Then propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide:
 
 1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — ${HOOK_TEXT_RULES} Punchy and curiosity-driven, matching the brand's tone, not a generic slogan.
-2. ${PLACEMENT_RULES}
+2. ${LOGO_POSITION_RULE}
 
-Vary textPosition across the 3 options where the photo allows it, rather than always picking the same one. Write hookText in the language given by "Output language" in the context, if present.
+Write hookText in the language given by "Output language" in the context, if present.
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-{"options":[{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"},{"hookText":"...","logoPosition":"bottom-left","textPosition":"middle"},{"hookText":"...","logoPosition":"bottom-right","textPosition":"bottom"}]}`;
+{"faceOverlap":{"top":false,"middle":true,"bottom":false},"leastBadPosition":"top","options":[{"hookText":"...","logoPosition":"bottom-right"},{"hookText":"...","logoPosition":"bottom-left"},{"hookText":"...","logoPosition":"bottom-right"}]}`;
 
 const PHOTO_STYLING_SYSTEM_PROMPT_CUSTOM = `You are a social media copywriter looking at a customer's photo for a brand's post. The customer already wrote their own caption text (given as "Customer's text" in the context) that they want overlaid on the photo — refine it into a punchy, scroll-stopping short line for a raster overlay, keeping their core meaning and language, just tightening the wording. ${HOOK_TEXT_RULES} If it's already short and punchy, keep it close to as-is rather than rewriting for the sake of it.
 
-Also decide: ${PLACEMENT_RULES}
+${FACE_OVERLAP_RULE}
+
+Also decide: ${LOGO_POSITION_RULE}
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"}`;
+{"hookText":"...","logoPosition":"bottom-right","faceOverlap":{"top":false,"middle":true,"bottom":false},"leastBadPosition":"top"}`;
 
-const PHOTO_STYLING_SYSTEM_PROMPT_LOGO_ONLY = `You are looking at a customer's photo for a brand's post to decide where a small logo badge should sit so it doesn't cover the main subject. Decide: ${PLACEMENT_RULES.split("\n")[0]}
+const PHOTO_STYLING_SYSTEM_PROMPT_LOGO_ONLY = `You are looking at a customer's photo for a brand's post to decide where a small logo badge should sit so it doesn't cover the main subject. Decide: ${LOGO_POSITION_RULE}
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
 {"logoPosition":"bottom-right"}`;
@@ -386,6 +402,29 @@ function buildTemplateStylingPlans(locale?: "en" | "zh"): PhotoStylingPlan[] {
     { hookText: isZh ? "温柔小美好" : "Little moment", logoPosition: "bottom-left", textPosition: "middle" },
     { hookText: isZh ? "静静治愈中" : "So calming", logoPosition: "bottom-right", textPosition: "top" },
   ];
+}
+
+const ALL_TEXT_POSITIONS: TextPosition[] = ["top", "middle", "bottom"];
+
+/**
+ * Deterministically assigns `count` textPositions from the model's single
+ * faceOverlap judgment, cycling through whichever bands are face-free
+ * instead of trusting the model to re-decide (and stay consistent) 3
+ * separate times — one per hookText option.
+ */
+function resolveTextPositions(parsed: Record<string, unknown> | null, count: number): TextPosition[] {
+  const faceOverlapRaw = (parsed?.faceOverlap ?? {}) as Record<string, unknown>;
+  const faceOverlap: Record<TextPosition, boolean> = {
+    top: faceOverlapRaw.top === true,
+    middle: faceOverlapRaw.middle === true,
+    bottom: faceOverlapRaw.bottom === true,
+  };
+  const safePositions = ALL_TEXT_POSITIONS.filter((p) => !faceOverlap[p]);
+  const leastBad: TextPosition = ALL_TEXT_POSITIONS.includes(parsed?.leastBadPosition as TextPosition)
+    ? (parsed!.leastBadPosition as TextPosition)
+    : "top";
+  const fallback = safePositions.length > 0 ? safePositions : [leastBad];
+  return Array.from({ length: count }, (_, i) => fallback[i % fallback.length]);
 }
 
 function buildImageUserContent(
@@ -444,7 +483,6 @@ export async function analyzePhotoForStyling(input: {
   ];
 
   const validLogoPositions: LogoPosition[] = ["bottom-left", "bottom-right"];
-  const validTextPositions: TextPosition[] = ["top", "middle", "bottom"];
 
   if (textMode === "none") {
     if (!input.needsLogoPosition) {
@@ -490,9 +528,7 @@ export async function analyzePhotoForStyling(input: {
     const logoPosition = validLogoPositions.includes(parsed?.logoPosition as LogoPosition)
       ? (parsed!.logoPosition as LogoPosition)
       : "bottom-right";
-    const textPosition = validTextPositions.includes(parsed?.textPosition as TextPosition)
-      ? (parsed!.textPosition as TextPosition)
-      : "top";
+    const [textPosition] = resolveTextPositions(parsed, 1);
     return [{ hookText: hookText || sanitizeHookText(customText), logoPosition, textPosition }];
   }
 
@@ -509,19 +545,18 @@ export async function analyzePhotoForStyling(input: {
 
   const parsed = parseModelJson(raw);
   const rawOptions = Array.isArray(parsed?.options) ? (parsed.options as Record<string, unknown>[]) : [];
-  const plans = rawOptions
-    .filter(
-      (o) =>
-        typeof o.hookText === "string" &&
-        (o.hookText as string).trim() &&
-        validLogoPositions.includes(o.logoPosition as LogoPosition),
-    )
-    .map((o) => ({
+  const validOptions = rawOptions.filter(
+    (o) =>
+      typeof o.hookText === "string" &&
+      (o.hookText as string).trim() &&
+      validLogoPositions.includes(o.logoPosition as LogoPosition),
+  );
+  const textPositions = resolveTextPositions(parsed, validOptions.length);
+  const plans = validOptions
+    .map((o, i) => ({
       hookText: sanitizeHookText(o.hookText as string),
       logoPosition: o.logoPosition as LogoPosition,
-      textPosition: validTextPositions.includes(o.textPosition as TextPosition)
-        ? (o.textPosition as TextPosition)
-        : "top",
+      textPosition: textPositions[i],
     }))
     .filter((o) => o.hookText.length > 0);
 
