@@ -287,7 +287,15 @@
     "userPhone": "Phone",
     "userPostsUsed": "Posts used / limit",
     "userLimit": "Set limit",
-    "quotaUpdateFailed": "Failed to update quota."
+    "quotaUpdateFailed": "Failed to update quota.",
+    "userPassword": "Password",
+    "resetPassword": "Reset password",
+    "resetPasswordWorking": "Resetting…",
+    "resetPasswordConfirm": "Reset this user's password? Their old password will stop working immediately.",
+    "resetPasswordFailed": "Failed to reset password, please try again.",
+    "resetPasswordHint": "New password generated — copy it and send it to the user:",
+    "resetPasswordCopy": "Copy",
+    "resetPasswordCopied": "Copied"
   },
   "upgrade": {
     "title": "You've used all your free posts",

@@ -14,6 +14,7 @@ import { CampaignEditForm } from "@/components/campaign-edit-form";
 import { CampaignPhotoTest } from "@/components/campaign-photo-test";
 import { NotifyUserButton } from "@/components/notify-user-button";
 import { UserQuotaEditor } from "@/components/user-quota-editor";
+import { AdminResetPasswordButton } from "@/components/admin-reset-password-button";
 import { effectivePostLimit } from "@/lib/quota";
 
 // Temporary admin photo-test button — hidden for now per request, code kept
@@ -417,6 +418,7 @@ export default async function AdminPage({
               <th className="px-3 py-2">{t("userPhone")}</th>
               <th className="px-3 py-2">{t("userPostsUsed")}</th>
               <th className="px-3 py-2">{t("userLimit")}</th>
+              <th className="px-3 py-2">{t("userPassword")}</th>
             </tr>
           </thead>
           <tbody>
@@ -429,6 +431,9 @@ export default async function AdminPage({
                 </td>
                 <td className="px-3 py-2">
                   <UserQuotaEditor userId={u.id} postLimit={u.postLimit} />
+                </td>
+                <td className="px-3 py-2">
+                  <AdminResetPasswordButton userId={u.id} />
                 </td>
               </tr>
             ))}

@@ -272,7 +272,15 @@
     "userPhone": "手机号码",
     "userPostsUsed": "已用 / 上限",
     "userLimit": "设置上限",
-    "quotaUpdateFailed": "更新额度失败。"
+    "quotaUpdateFailed": "更新额度失败。",
+    "userPassword": "密码",
+    "resetPassword": "重置密码",
+    "resetPasswordWorking": "重置中…",
+    "resetPasswordConfirm": "确定要重置这位用户的密码吗？旧密码将立即失效。",
+    "resetPasswordFailed": "重置密码失败，请重试。",
+    "resetPasswordHint": "新密码已生成，请复制发给用户：",
+    "resetPasswordCopy": "复制",
+    "resetPasswordCopied": "已复制"
   },
   "upgrade": {
     "title": "你的免费创建额度已用完",
