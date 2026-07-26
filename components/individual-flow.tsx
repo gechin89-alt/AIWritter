@@ -134,9 +134,13 @@ export function IndividualFlow({
     setStyledPhotoPath(null);
     setPhotoVariants([]);
     setStylingPhoto(true);
+    setError(null);
     try {
       const resolvedPath = mediaPath ?? (await uploadFile(file));
-      if (!resolvedPath) return;
+      if (!resolvedPath) {
+        setError(t("errorGeneric"));
+        return;
+      }
       const res = await fetch("/api/photo-filter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -150,7 +154,13 @@ export function IndividualFlow({
         } else if (data.filtered && variants.length === 1) {
           setStyledPhotoPath(variants[0]);
         }
+      } else {
+        setError(t("errorGeneric"));
       }
+    } catch {
+      // Previously uncaught here — on a slow/dropped mobile connection this
+      // silently reset stylingPhoto with no variants and no visible error.
+      setError(t("errorGeneric"));
     } finally {
       setStylingPhoto(false);
     }
@@ -534,6 +544,8 @@ export function IndividualFlow({
               </div>
             </div>
           )}
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
             type="button"

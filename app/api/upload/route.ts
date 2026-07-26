@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "node:path";
-import { uploadBufferToCloudinary } from "@/lib/cloudinary";
+import { uploadBufferToCloudinary, fetchAsBuffer } from "@/lib/cloudinary";
 import { removeWhiteBackground } from "@/lib/image-filter";
 
 const ALLOWED_EXT = new Set([
@@ -9,11 +9,14 @@ const ALLOWED_EXT = new Set([
   ".png",
   ".gif",
   ".webp",
+  ".heic",
+  ".heif",
   ".mp4",
   ".mov",
   ".webm",
 ]);
 const VIDEO_EXT = new Set([".mp4", ".mov", ".webm"]);
+const HEIC_EXT = new Set([".heic", ".heif"]);
 const MAX_SIZE_BYTES = 25 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
@@ -37,8 +40,22 @@ export async function POST(req: NextRequest) {
 
   let buffer: Buffer = Buffer.from(await file.arrayBuffer());
   const isLogo = formData.get("type") === "logo";
+  const isVideo = VIDEO_EXT.has(ext);
+  const isHeic = HEIC_EXT.has(ext);
 
-  if (isLogo && !VIDEO_EXT.has(ext)) {
+  if (isLogo && !isVideo) {
+    if (isHeic) {
+      // sharp/libvips in this environment can't reliably decode real
+      // iPhone/Android HEIC photos (the HEVC codec usually isn't bundled
+      // even when the format is "registered") — let Cloudinary convert it
+      // server-side first, then re-fetch the now-JPEG bytes to remove the
+      // white background locally.
+      const convertedUrl = await uploadBufferToCloudinary(buffer, {
+        resourceType: "image",
+        format: "jpg",
+      });
+      buffer = await fetchAsBuffer(convertedUrl);
+    }
     // Free alternative to Cloudinary's paid background-removal add-on — fades
     // a flat white background to transparent so logos don't composite onto
     // photos as an ugly white square.
@@ -46,8 +63,12 @@ export async function POST(req: NextRequest) {
   }
 
   const url = await uploadBufferToCloudinary(buffer, {
-    resourceType: VIDEO_EXT.has(ext) ? "video" : "image",
-    format: isLogo ? "png" : undefined,
+    resourceType: isVideo ? "video" : "image",
+    // Forcing a real, universally-decodable format at the Cloudinary layer
+    // (rather than trusting the original bytes) avoids relying on sharp's
+    // HEIC support downstream — same fix class as the earlier WEBP/JPEG
+    // mismatch bug.
+    format: isLogo ? "png" : isHeic ? "jpg" : undefined,
   });
 
   return NextResponse.json({ path: url });

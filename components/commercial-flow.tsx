@@ -242,9 +242,13 @@ export function CommercialFlow({
     setStyledPhotoPath(null);
     setPhotoVariants([]);
     setStylingPhoto(true);
+    setError(null);
     try {
       const resolvedPath = mediaPath ?? (await uploadFile(file));
-      if (!resolvedPath) return;
+      if (!resolvedPath) {
+        setError(tc("errorGeneric"));
+        return;
+      }
       const filterRes = await fetch("/api/photo-filter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -259,7 +263,16 @@ export function CommercialFlow({
         } else if (filterData.filtered && variants.length === 1) {
           setStyledPhotoPath(variants[0]);
         }
+        // filtered:false with no error is a legitimate no-op (e.g. campaign
+        // has no brand color/logo configured) - mediaPath alone still works.
+      } else {
+        setError(tc("errorGeneric"));
       }
+    } catch {
+      // Previously uncaught here — on a slow/dropped mobile connection this
+      // silently reset stylingPhoto with no variants and no visible error,
+      // looking exactly like "the 3 photos just never show up".
+      setError(tc("errorGeneric"));
     } finally {
       setStylingPhoto(false);
     }

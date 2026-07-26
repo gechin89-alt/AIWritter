@@ -322,7 +322,7 @@ export async function generateFollowUpQuestions(input: {
 }
 
 export type LogoPosition = "bottom-left" | "bottom-right";
-export type TextPosition = "top" | "middle";
+export type TextPosition = "top" | "middle" | "bottom";
 // "auto": Claude invents 3 distinct hookText options from scratch.
 // "custom": the user wrote their own text; Claude only polishes it (keeps
 // their meaning) and decides placement — one shared plan reused across the
@@ -348,7 +348,7 @@ function sanitizeHookText(text: string): string {
 }
 
 const PLACEMENT_RULES = `logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
-textPosition: "top" (upper third) or "middle" (vertically centered). First check: are there any faces anywhere in the photo (there may be more than one — a group photo, a couple, etc.)? If so, this is the deciding factor — pick whichever of "top"/"middle" does NOT overlap ANY of the faces (a face matters far more than generic clutter). If there's no face, just pick whichever region has more open/plain background. If faces are spread out enough that both regions overlap at least one face, pick whichever region overlaps the fewest/smallest faces.`;
+textPosition: "top" (upper third), "middle" (vertically centered), or "bottom" (lower area, above where the logo sits). First check: are there any faces anywhere in the photo (there may be more than one — a group photo, a couple, etc.)? Avoiding faces entirely is the top priority, overriding everything else — try all three positions and pick whichever one does NOT overlap ANY face. Only if a face is unavoidably large enough to overlap all three positions should you fall back to whichever position overlaps the fewest/smallest faces. If there's no face at all, just pick whichever region has the most open/plain background.`;
 
 const HOOK_TEXT_RULES = `one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).`;
 
@@ -365,7 +365,7 @@ const PHOTO_STYLING_SYSTEM_PROMPT_AUTO = `You are a social media copywriter look
 Vary textPosition across the 3 options where the photo allows it, rather than always picking the same one. Write hookText in the language given by "Output language" in the context, if present.
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-{"options":[{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"},{"hookText":"...","logoPosition":"bottom-left","textPosition":"middle"},{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"}]}`;
+{"options":[{"hookText":"...","logoPosition":"bottom-right","textPosition":"top"},{"hookText":"...","logoPosition":"bottom-left","textPosition":"middle"},{"hookText":"...","logoPosition":"bottom-right","textPosition":"bottom"}]}`;
 
 const PHOTO_STYLING_SYSTEM_PROMPT_CUSTOM = `You are a social media copywriter looking at a customer's photo for a brand's post. The customer already wrote their own caption text (given as "Customer's text" in the context) that they want overlaid on the photo — refine it into a punchy, scroll-stopping short line for a raster overlay, keeping their core meaning and language, just tightening the wording. ${HOOK_TEXT_RULES} If it's already short and punchy, keep it close to as-is rather than rewriting for the sake of it.
 
@@ -444,7 +444,7 @@ export async function analyzePhotoForStyling(input: {
   ];
 
   const validLogoPositions: LogoPosition[] = ["bottom-left", "bottom-right"];
-  const validTextPositions: TextPosition[] = ["top", "middle"];
+  const validTextPositions: TextPosition[] = ["top", "middle", "bottom"];
 
   if (textMode === "none") {
     if (!input.needsLogoPosition) {

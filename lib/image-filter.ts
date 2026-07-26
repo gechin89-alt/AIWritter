@@ -534,13 +534,19 @@ export async function applyBrandStyle(
     // XHS feed thumbnails get their top ~15% covered by the app's own UI
     // chrome, so "top" placement leaves that strip blank and sits in the
     // upper-center third instead of flush against the top edge. "middle"
-    // vertically centers instead — Claude picks whichever has more open
-    // background in the specific photo.
+    // vertically centers instead, and "bottom" sits low but leaves clearance
+    // above the bottom-corner logo — Claude picks whichever avoids the
+    // photo's face(s) (or has the most open background if there's no face).
     const areaHeight = getCaptionAreaHeight(height);
-    const top =
-      options.textPosition === "middle"
-        ? Math.round((height - areaHeight) / 2)
-        : Math.round(height * 0.13);
+    const bottomLogoClearance = Math.round(height * 0.22);
+    let top: number;
+    if (options.textPosition === "middle") {
+      top = Math.round((height - areaHeight) / 2);
+    } else if (options.textPosition === "bottom") {
+      top = Math.max(0, height - areaHeight - bottomLogoClearance);
+    } else {
+      top = Math.round(height * 0.13);
+    }
     buffer = await sharp(buffer)
       .composite([{ input: overlayBuffer, left: 0, top }])
       .jpeg({ quality: 92 })
