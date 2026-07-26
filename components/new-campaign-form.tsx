@@ -22,7 +22,10 @@ export function NewCampaignForm({ label }: { label: string }) {
   const [productDescription, setProductDescription] = useState("");
   const [prizeInfo, setPrizeInfo] = useState("");
   const [termsText, setTermsText] = useState("");
-  const [questionMode, setQuestionMode] = useState<"FIXED" | "AI_ADAPTIVE">("FIXED");
+  // AI-adaptive mode is hidden from campaign setup for now — its follow-up
+  // questions ask about the customer's own feedback (no photo involved), and
+  // fixed questions cover that well enough without an extra setup choice.
+  const questionMode = "FIXED" as const;
   const [prizes, setPrizes] = useState<PrizeRow[]>([]);
 
   const [identityQuestion, setIdentityQuestion] = useState("");
@@ -69,7 +72,6 @@ export function NewCampaignForm({ label }: { label: string }) {
     setProductDescription("");
     setPrizeInfo("");
     setTermsText("");
-    setQuestionMode("FIXED");
     setIdentityQuestion("");
     setIdentityOptions([""]);
     setIdentityIncludeOther(false);
@@ -247,28 +249,6 @@ export function NewCampaignForm({ label }: { label: string }) {
             {t("formPrizesHint")}
           </div>
           <PrizeListEditor prizes={prizes} onChange={setPrizes} />
-
-          <div className="mt-1 border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800">
-            {t("formQuestionSource")}
-          </div>
-          <div className="flex gap-4 text-sm">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={questionMode === "FIXED"}
-                onChange={() => setQuestionMode("FIXED")}
-              />
-              {t("formFixedQuestions")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                checked={questionMode === "AI_ADAPTIVE"}
-                onChange={() => setQuestionMode("AI_ADAPTIVE")}
-              />
-              {t("formAiAdaptive")}
-            </label>
-          </div>
 
           {questionMode === "FIXED" && (
             <>
