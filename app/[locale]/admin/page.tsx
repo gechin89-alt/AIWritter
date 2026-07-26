@@ -394,18 +394,18 @@ export default async function AdminPage({
                       <td className="px-3 py-2">{s.name || "—"}</td>
                       <td className="px-3 py-2">{s.phone || "—"}</td>
                       <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-2">
                           {photos.map((p) => (
                             <a key={p} href={p} target="_blank" rel="noopener noreferrer">
                               <Image
                                 src={p}
                                 alt=""
-                                width={80}
-                                height={80}
+                                width={140}
+                                height={140}
                                 className={
                                   p === s.mediaPath
-                                    ? "h-20 w-20 rounded object-cover ring-2 ring-brand"
-                                    : "h-20 w-20 rounded object-cover"
+                                    ? "h-36 w-36 rounded object-cover ring-2 ring-brand"
+                                    : "h-36 w-36 rounded object-cover"
                                 }
                               />
                             </a>
