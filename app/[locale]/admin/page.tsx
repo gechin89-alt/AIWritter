@@ -50,7 +50,7 @@ export default async function AdminPage({
         take: 50,
       }),
       prisma.commercialSubmission.findMany({
-        select: { campaignId: true, phone: true },
+        select: { campaignId: true, phone: true, status: true },
       }),
       prisma.user.findMany({
         where: { role: "USER" },
@@ -64,6 +64,11 @@ export default async function AdminPage({
     { total: number; uniquePhones: Set<string> }
   >();
   for (const s of allSubmissionKeys) {
+    // DRAFT rows are created as soon as content is generated, before the
+    // customer has actually posted anything — counting them here inflated
+    // both numbers with people who never finished. Only a submitted XHS
+    // link (POSTED, or VERIFIED once an admin has checked it) counts.
+    if (s.status === "DRAFT") continue;
     const entry = statsByCampaign.get(s.campaignId) ?? {
       total: 0,
       uniquePhones: new Set<string>(),
