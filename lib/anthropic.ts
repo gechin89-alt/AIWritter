@@ -74,8 +74,8 @@ Rules:
   - The hashtag block MUST include at least one hashtag built from the brand/product name itself (e.g. "#<brand>"), in addition to topical hashtags, so the post surfaces in brand searches.
   - Include an appropriate sponsorship disclosure per platform norms (e.g. "#合作" / "#广告" for XHS, "#ad" / "Paid partnership" for Instagram) — do not try to hide that it's sponsored.
   - If a "Product/brand description" is given in the context, use it to understand what the brand actually sells and connect it naturally to the photo/topic. If no product description is given AND the photo/topic has no plausible connection to the brand name alone, do NOT invent a connection — ask a clarifying question instead (see below).
-- If the user's free-text input and answers are too vague or contradictory to write a good post (e.g. no topic at all), do NOT guess — instead ask ONE short clarifying question.
-- If the user's answer indicates the uploaded photo itself is wrong/mismatched (e.g. they say they uploaded the wrong photo, or a prior question already established the photo doesn't connect to the brand and they haven't resolved it), ask a clarifying question that also offers the option to upload a different photo, and set "suggestReupload":true in your JSON response so the app can show a direct re-upload action alongside your question. Only set this when the photo itself is the actual problem — not for other kinds of vagueness.
+- If the user's free-text input and answers are too vague or contradictory to write a good post (e.g. no topic at all), do NOT guess — instead ask ONE short clarifying question. Check the context for whether a photo has been provided: if none has, never ask about, reference, or suggest sharing a photo/moment-to-share in your question — ask about their experience/story in words only, since they haven't reached the photo step yet.
+- If a photo HAS been provided (per the context) and the user's answer indicates that photo itself is wrong/mismatched (e.g. they say they uploaded the wrong photo, or a prior question already established the photo doesn't connect to the brand and they haven't resolved it), ask a clarifying question that also offers the option to upload a different photo, and set "suggestReupload":true in your JSON response so the app can show a direct re-upload action alongside your question. Only set this when the photo itself is the actual problem, and only when a photo actually exists in context — never when none has been provided.
 - If anything the user wrote is a complaint or negative — whether in their free-text input, a follow-up question answer, or a custom identity/tone/style "other" entry — do not reproduce that negativity in the post (this is being used to promote a brand; a post that reads as a bad review defeats the purpose). Reframe it constructively: acknowledge the real feeling briefly, then pivot to something genuinely positive, a workaround, or what would make it better — never fake enthusiasm that contradicts what they said, but never publish a post that reads as a bad review either. If what they said is too negative or unclear to reframe honestly, ask a clarifying question instead of guessing (see above).
 - Structure for virality on XHS specifically (these apply to XHS posts; use platform-appropriate judgment for Instagram):
   - Title: under 20 characters, using a proven hook pattern — a number ("3个技巧..."), a question ("为什么...？"), or a before/after contrast ("用了...之后..."). The title is the single biggest driver of clicks, so never write a flat/descriptive title.
@@ -112,7 +112,26 @@ function parseModelJson(raw: string): Record<string, unknown> | null {
     }
   }
 
-  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  if (!value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
+
+  // Rare model slip: instead of the flat {"type":"question"|"result",...}
+  // shape, it nests one inside the other's "content" field (e.g.
+  // {"type":"result","content":"{\"type\":\"question\",...}"}). Unwrap one
+  // level so the inner, actually-intended structure wins — otherwise this
+  // would show raw JSON to the customer as if it were their post.
+  if (typeof obj.content === "string" && /^\s*\{/.test(obj.content)) {
+    try {
+      const inner = JSON.parse(obj.content);
+      if (inner && typeof inner === "object" && "type" in inner) {
+        return inner as Record<string, unknown>;
+      }
+    } catch {
+      // Not actually nested JSON — fall through and use obj as-is.
+    }
+  }
+
+  return obj;
 }
 
 function buildTemplateContent(input: GenerateInput): string {
@@ -172,10 +191,13 @@ export async function generateContent(
     input.locale
       ? `Output language: ${input.locale === "zh" ? "Chinese (Simplified)" : "English"}`
       : null,
+    input.imageBase64 && input.imageMediaType
+      ? "A photo has been provided for this post."
+      : "No photo has been provided for this post — do not ask about, reference, or suggest one.",
     input.identity ? `Identity/persona: ${input.identity}` : null,
     input.tone ? `Tone of voice: ${input.tone}` : null,
     input.style ? `Style: ${input.style}` : null,
-    input.category ? `Photo category: ${input.category}` : null,
+    input.category ? `Category: ${input.category}` : null,
     ...(input.qaPairs?.map((qa) => `Q: ${qa.question} A: ${qa.answer}`) ?? []),
     input.freeText ? `User's notes: ${input.freeText}` : null,
     input.commercial ? `This is a commercial/sponsored post.` : null,
