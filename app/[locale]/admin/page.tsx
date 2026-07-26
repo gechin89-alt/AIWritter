@@ -393,12 +393,14 @@ export default async function AdminPage({
                       <td className="px-3 py-2">{s.campaign.name}</td>
                       <td className="px-3 py-2">{s.name || "—"}</td>
                       <td className="px-3 py-2">{s.phone || "—"}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-1 py-2">
                         {/* flex-nowrap (not flex-wrap): keeps all 3 style
                             variants side by side on one line instead of
                             stacking vertically and making the row tall — the
                             table's own overflow-x-auto wrapper handles any
-                            horizontal overflow instead. */}
+                            horizontal overflow instead. Less horizontal
+                            padding than other cells (px-1 vs px-3) so more
+                            of the row's width actually goes to the photos. */}
                         <div className="flex flex-nowrap gap-2">
                           {photos.map((p) => (
                             <a key={p} href={p} target="_blank" rel="noopener noreferrer">
