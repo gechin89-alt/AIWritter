@@ -20,30 +20,35 @@ const HEIC_EXT = new Set([".heic", ".heif"]);
 const MAX_SIZE_BYTES = 25 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const file = formData.get("file");
-
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "No file provided" }, { status: 400 });
-  }
-  if (file.size > MAX_SIZE_BYTES) {
-    return NextResponse.json({ error: "File too large" }, { status: 413 });
-  }
-
-  const ext = path.extname(file.name).toLowerCase();
-  if (!ALLOWED_EXT.has(ext)) {
-    return NextResponse.json(
-      { error: "Unsupported file type" },
-      { status: 415 },
-    );
-  }
-
-  let buffer: Buffer = Buffer.from(await file.arrayBuffer());
-  const isLogo = formData.get("type") === "logo";
-  const isVideo = VIDEO_EXT.has(ext);
-  const isHeic = HEIC_EXT.has(ext);
-
+  // Wraps the ENTIRE handler, not just the upload/conversion logic — an
+  // exception anywhere before this (e.g. req.formData() failing on a
+  // malformed or oversized multipart body) previously fell through to
+  // Next's generic 500 handler, which returns no JSON body, reproducing the
+  // exact "unknown" reason the client always fell back to.
   try {
+    const formData = await req.formData();
+    const file = formData.get("file");
+
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      return NextResponse.json({ error: "File too large" }, { status: 413 });
+    }
+
+    const ext = path.extname(file.name).toLowerCase();
+    if (!ALLOWED_EXT.has(ext)) {
+      return NextResponse.json(
+        { error: "Unsupported file type" },
+        { status: 415 },
+      );
+    }
+
+    let buffer: Buffer = Buffer.from(await file.arrayBuffer());
+    const isLogo = formData.get("type") === "logo";
+    const isVideo = VIDEO_EXT.has(ext);
+    const isHeic = HEIC_EXT.has(ext);
+
     if (isLogo && !isVideo) {
       if (isHeic) {
         // sharp/libvips in this environment can't reliably decode real

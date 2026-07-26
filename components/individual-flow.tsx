@@ -10,6 +10,7 @@ import { BrandProfileEditor } from "./brand-profile-editor";
 import { PostHistoryButton } from "./post-history-button";
 import { Modal } from "./modal";
 import { toDownloadUrl } from "@/lib/download-url";
+import { compressImageForUpload } from "@/lib/compress-image";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
 type TextMode = "auto" | "custom" | "none";
@@ -116,22 +117,30 @@ export function IndividualFlow({
     return uploadFile(mediaFile);
   }
 
-  function handleMediaSelected(file: File | null) {
-    setMediaFile(file);
+  async function handleMediaSelected(file: File | null) {
     setMediaPath(null);
     setStyledPhotoPath(null);
     setPhotoVariants([]);
     if (!file) {
+      setMediaFile(null);
       // Removing the photo resets the text-mode question so it's asked
       // fresh for whatever gets uploaded next.
       setTextModeChoice("auto");
       setCustomText("");
       return;
     }
+    // Fresh phone-camera photos (especially iPhone) can be several MB and
+    // exceed Netlify's serverless function payload limit before our own
+    // code even runs, showing up as an unexplained 500. Shrinking client-side
+    // first sidesteps that regardless of the exact limit.
+    const compressed = file.type.startsWith("image/")
+      ? await compressImageForUpload(file)
+      : file;
+    setMediaFile(compressed);
     // Defaults to "auto", so a fresh upload just works immediately unless
     // the customer had already picked "custom" and typed something.
-    if (file.type.startsWith("image/") && (textModeChoice !== "custom" || customText.trim())) {
-      runPhotoStyling(file, textModeChoice, customText);
+    if (compressed.type.startsWith("image/") && (textModeChoice !== "custom" || customText.trim())) {
+      runPhotoStyling(compressed, textModeChoice, customText);
     }
   }
 
