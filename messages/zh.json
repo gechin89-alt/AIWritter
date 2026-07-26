@@ -118,7 +118,8 @@
   "commercial": {
     "prizesTitle": "奖项",
     "questionnaireTitle": "分享一下你的体验",
-    "stepMedia": "上传照片（可选）",
+    "stepMedia": "上传照片（必填）",
+    "stepMediaRequiredHint": "请先上传照片才能继续",
     "identity": "你觉得自己更像哪一种？",
     "tone": "选择语气",
     "style": "选择风格",

@@ -496,15 +496,19 @@ export function IndividualFlow({
           {photoVariants.length > 1 && !styledPhotoPath && !stylingPhoto && (
             <div>
               <p className="text-xs text-zinc-600 dark:text-zinc-400">{t("choosePhotoVariant")}</p>
-              <div className="mt-2 flex gap-2">
+              {/* grid instead of a fixed-width flex row — 3 fixed 96px
+                  thumbnails can be wider than a narrow phone screen, pushing
+                  them off-screen with no visible scrollbar. A 3-column grid
+                  always fits. */}
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 {photoVariants.map((variantPath) => (
                   <button
                     key={variantPath}
                     type="button"
                     onClick={() => setPreviewingVariant(variantPath)}
-                    className="overflow-hidden rounded-lg border-2 border-transparent hover:border-brand"
+                    className="aspect-square overflow-hidden rounded-lg border-2 border-transparent hover:border-brand"
                   >
-                    <Image src={variantPath} alt="" width={96} height={96} className="h-24 w-24 object-cover" />
+                    <Image src={variantPath} alt="" width={96} height={96} className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>

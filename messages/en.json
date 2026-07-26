@@ -123,7 +123,8 @@
   "commercial": {
     "prizesTitle": "Prizes",
     "questionnaireTitle": "Tell us about your experience",
-    "stepMedia": "Upload a photo (optional)",
+    "stepMedia": "Upload a photo (required)",
+    "stepMediaRequiredHint": "Please upload a photo before continuing",
     "identity": "How would you describe yourself?",
     "tone": "Pick a tone",
     "style": "Pick a style",

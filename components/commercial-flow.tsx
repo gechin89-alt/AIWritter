@@ -294,6 +294,7 @@ export function CommercialFlow({
   }
 
   async function handleFetchQuestions() {
+    if (!mediaFile) return;
     // Don't let a customer proceed with the un-styled raw photo just because
     // they never tapped one of the 3 AI-styled options.
     if (photoVariants.length > 0 && !styledPhotoPath) return;
@@ -816,20 +817,24 @@ export function CommercialFlow({
       {photoVariants.length > 1 && !styledPhotoPath && !stylingPhoto && (
         <div className="mt-3">
           <p className="text-xs text-zinc-600 dark:text-zinc-400">{tc("choosePhotoVariant")}</p>
-          <div className="mt-2 flex gap-2">
+          {/* grid instead of a fixed-width flex row — 3 fixed 96px thumbnails
+              (plus gaps) can be wider than a narrow phone screen, pushing
+              them off-screen with no visible scrollbar, so they looked like
+              they never rendered at all. A 3-column grid always fits. */}
+          <div className="mt-2 grid grid-cols-3 gap-2">
             {photoVariants.map((variantPath) => (
               <button
                 key={variantPath}
                 type="button"
                 onClick={() => setPreviewingVariant(variantPath)}
-                className="overflow-hidden rounded-lg border-2 border-transparent hover:border-brand"
+                className="aspect-square overflow-hidden rounded-lg border-2 border-transparent hover:border-brand"
               >
                 <Image
                   src={variantPath}
                   alt=""
                   width={96}
                   height={96}
-                  className="h-24 w-24 object-cover"
+                  className="h-full w-full object-cover"
                 />
               </button>
             ))}
@@ -990,9 +995,12 @@ export function CommercialFlow({
 
               {error && <p className="text-sm text-red-600">{error}</p>}
 
+              {!mediaFile && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">{tc("stepMediaRequiredHint")}</p>
+              )}
               <button
                 onClick={handleFetchQuestions}
-                disabled={loadingQuestions || uploading || !category || aiUnavailable}
+                disabled={loadingQuestions || uploading || !category || !mediaFile || aiUnavailable}
                 className={
                   aiUnavailable
                     ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
@@ -1075,12 +1083,15 @@ export function CommercialFlow({
         <div className="mt-6 flex flex-col gap-5">
           {mediaField}
 
+          {!mediaFile && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">{tc("stepMediaRequiredHint")}</p>
+          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <button
             type="button"
             onClick={() => setPhotoStepConfirmed(true)}
-            disabled={photoSelectionPending || stylingPhoto || uploading}
+            disabled={!mediaFile || photoSelectionPending || stylingPhoto || uploading}
             className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {tc("continueLabel")}

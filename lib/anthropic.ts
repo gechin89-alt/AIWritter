@@ -348,7 +348,7 @@ function sanitizeHookText(text: string): string {
 }
 
 const PLACEMENT_RULES = `logoPosition: the logo badge goes in one of the two BOTTOM corners only — pick "bottom-left" or "bottom-right", whichever has more open/plain background in THIS photo so the logo won't cover the main subject (a face, product, or the busiest part of the scene).
-textPosition: "top" (upper third) or "middle" (vertically centered). First check: is there a face anywhere in the photo? If so, this is the deciding factor — pick whichever of "top"/"middle" does NOT overlap the face (a face matters far more than generic clutter). If there's no face, just pick whichever region has more open/plain background. If a face is large enough to overlap both regions, pick whichever overlaps it least.`;
+textPosition: "top" (upper third) or "middle" (vertically centered). First check: are there any faces anywhere in the photo (there may be more than one — a group photo, a couple, etc.)? If so, this is the deciding factor — pick whichever of "top"/"middle" does NOT overlap ANY of the faces (a face matters far more than generic clutter). If there's no face, just pick whichever region has more open/plain background. If faces are spread out enough that both regions overlap at least one face, pick whichever region overlaps the fewest/smallest faces.`;
 
 const HOOK_TEXT_RULES = `one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).`;
 
