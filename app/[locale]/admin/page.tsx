@@ -283,9 +283,11 @@ export default async function AdminPage({
       </p>
       {(() => {
         const rows = submissions.map((s) => {
-          const photoVariants: string[] = s.photoVariants ? JSON.parse(s.photoVariants) : [];
           const titleVariants: string[] = s.titleVariants ? JSON.parse(s.titleVariants) : [];
-          const photos = photoVariants.length > 0 ? photoVariants : s.mediaPath ? [s.mediaPath] : [];
+          // Only the final chosen photo, not all 3 unstyled variant options
+          // — showing all 3 made rows stack tall since they wrapped onto
+          // separate lines once thumbnails got big enough to actually see.
+          const photos = s.mediaPath ? [s.mediaPath] : [];
           const notPosted = s.status !== "POSTED";
           return { s, photos, titleVariants, notPosted };
         });
@@ -316,13 +318,9 @@ export default async function AdminPage({
                           <Image
                             src={p}
                             alt=""
-                            width={72}
-                            height={72}
-                            className={
-                              p === s.mediaPath
-                                ? "h-[72px] w-[72px] rounded object-cover ring-2 ring-brand"
-                                : "h-[72px] w-[72px] rounded object-cover"
-                            }
+                            width={192}
+                            height={96}
+                            className="h-24 w-48 rounded object-cover"
                           />
                         </a>
                       ))}
@@ -402,11 +400,7 @@ export default async function AdminPage({
                                 alt=""
                                 width={192}
                                 height={96}
-                                className={
-                                  p === s.mediaPath
-                                    ? "h-24 w-48 rounded object-cover ring-2 ring-brand"
-                                    : "h-24 w-48 rounded object-cover"
-                                }
+                                className="h-24 w-48 rounded object-cover"
                               />
                             </a>
                           ))}
