@@ -106,7 +106,33 @@ function parseModelJson(raw: string): Record<string, unknown> | null {
   try {
     value = JSON.parse(text);
   } catch {
-    return null;
+    // Recovery: the model's JSON is sometimes malformed even though the
+    // fields we actually need are intact — a literal unescaped newline
+    // inside a string, a truncated tail. Pull "type"/"content"/"titles" out
+    // with a tolerant regex instead of giving up — giving up here
+    // previously showed the raw, half-broken JSON text to the customer as
+    // if it were their post.
+    const typeMatch = text.match(/"type"\s*:\s*"(question|result)"/);
+    // Character classes ([^"\\], [^\]]) already span newlines without the
+    // "s"/dotAll flag, which the project's TS target doesn't support.
+    const contentMatch = text.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (!typeMatch || !contentMatch) return null;
+    let content: string;
+    try {
+      content = JSON.parse(`"${contentMatch[1]}"`);
+    } catch {
+      content = contentMatch[1];
+    }
+    const titlesMatch = text.match(/"titles"\s*:\s*(\[[^\]]*\])/);
+    let titles: unknown;
+    if (titlesMatch) {
+      try {
+        titles = JSON.parse(titlesMatch[1]);
+      } catch {
+        titles = undefined;
+      }
+    }
+    return { type: typeMatch[1], content, ...(titles ? { titles } : {}) };
   }
 
   if (typeof value === "string") {
@@ -281,7 +307,13 @@ export async function generateContent(
     return { type: "question", content: parsed.content, suggestReupload: parsed.suggestReupload === true };
   }
 
-  return { type: "result", content: raw };
+  // The prompt requires ONLY minified JSON — if we still can't recover a
+  // usable shape even with parseModelJson's tolerant regex fallback, the
+  // response is genuinely broken. Previously this returned the raw,
+  // unparsed text as if it were the finished post, which could show literal
+  // JSON syntax to the customer. Fail loudly instead so the caller shows a
+  // normal "please try again" error, same as any other generation failure.
+  throw new Error("Model response was not valid JSON and could not be recovered");
 }
 
 const FOLLOW_UP_SYSTEM_PROMPT = `You take a product/experience category, and optionally a brand/product to promote, and write 1-2 short multiple-choice follow-up questions that draw out the customer's genuine feedback/experience before writing a social media post about it. The customer has NOT uploaded a photo at this point in the flow — never reference, assume, or ask about a photo.
