@@ -773,6 +773,11 @@ export function CommercialFlow({
   async function handleClarifySubmit() {
     if (!clarifyAnswer.trim()) return;
     const nextHistory: ChatTurn[] = [...history, { role: "user", content: clarifyAnswer }];
+    // Show the reply as a sent bubble immediately, not only once a reply
+    // comes back — otherwise the textarea clears on send but nothing
+    // visible confirms the message was actually captured while the request
+    // is in flight, which reads as "my typed reply just disappeared".
+    setHistory(nextHistory);
     setClarifyAnswer("");
     await callGenerate(nextHistory);
   }
