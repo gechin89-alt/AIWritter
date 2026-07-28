@@ -380,6 +380,42 @@ export type PhotoStylingPlan = {
   hookText: string; // "" means no text overlay (textMode "none")
   logoPosition: LogoPosition;
   textPosition: TextPosition;
+  // Which of the 10 viral XHS cover archetypes this variant is styled as
+  // (see COVER_STYLE_CATALOGUE below), and why Claude picked it for this
+  // specific photo — shown to the customer alongside the 3 options instead
+  // of leaving the choice unexplained. Only set in "auto" text mode.
+  coverStyleId?: number;
+  coverStyleReason?: string;
+};
+
+// Compiled from XHS_Viral_Cover_Catalogue.md — 10 proven cover
+// composition/psychological-hook archetypes (distinct from the 12 color-grade
+// "trend styles" in lib/image-filter.ts, which handle the actual rendering).
+// Claude picks WHICH of these fits a given photo; COVER_STYLE_TO_TREND_STYLE
+// in image-filter.ts maps each pick to a rendering recipe.
+const COVER_STYLE_CATALOGUE = `10 proven viral XiaoHongShu cover styles:
+1. Real-Person Direct Shot — subject in-frame, natural pose, builds instant trust.
+2. Before/After Transformation — split or sequential frame with a measurable result.
+3. Bold Headline / Color Block — no photo needed, big text on a saturated color block.
+4. Pain Point + Contrast Portrait — subject mid-demonstration, clean background, empathy/trust.
+5. Confessional / Story Hook — ordinary scene reframed with a personal secret/reveal angle.
+6. Reveal-Half Suspense Hook — result-first framing, cause/detail withheld to force a click.
+7. Two-Person Interactive Frame — two people in physical/social interaction.
+8. Cross-Category Mashup — two unrelated visual/topic worlds combined for novelty.
+9. Real-Life / Lived-In Scene — authentic, unstaged, natural light, an "in-use" moment.
+10. Minimalist Infographic — solid background, big headline, data/screenshot-style clarity.`;
+
+export const COVER_STYLE_NAMES: Record<number, { en: string; zh: string }> = {
+  1: { en: "Real-Person Direct Shot", zh: "真人出镜" },
+  2: { en: "Before/After Transformation", zh: "前后对比" },
+  3: { en: "Bold Headline / Color Block", zh: "大字报" },
+  4: { en: "Pain Point + Contrast Portrait", zh: "痛点共情" },
+  5: { en: "Confessional / Story Hook", zh: "私密故事感" },
+  6: { en: "Reveal-Half Suspense Hook", zh: "悬念半遮面" },
+  7: { en: "Two-Person Interactive Frame", zh: "双人互动" },
+  8: { en: "Cross-Category Mashup", zh: "跨界混搭" },
+  9: { en: "Real-Life / Lived-In Scene", zh: "生活真实感" },
+  10: { en: "Minimalist Infographic", zh: "极简资讯" },
 };
 
 function sanitizeHookText(text: string): string {
@@ -406,26 +442,33 @@ const FACE_OVERLAP_RULE = `Before anything else, look at the WHOLE photo once (t
 - "bottom": the lower area, above where a logo badge would sit
 Report this as "faceOverlap": {"top":bool,"middle":bool,"bottom":bool}. Also report "leastBadPosition": the one of the three that overlaps a face the LEAST (used only as a fallback if a face is so large it overlaps all three bands).`;
 
-const HOOK_TEXT_RULES = `one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead).`;
+const HOOK_TEXT_RULES = `one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead). Never invent a specific unverified number/percentage/claim about the product's performance (e.g. a made-up "+300%" or "68cm→50cm") unless that exact figure was actually given in the product/brand context — some catalogue styles below (Before/After, Minimalist Infographic) naturally suggest number-driven phrasing, but a fabricated stat is a compliance risk, not just a style choice; write a punchy line without a specific invented number instead.`;
 
-// The actual color-grade/mood (which of the 12 viral trend styles) is
-// assigned randomly by the caller, not by Claude — this guarantees real
-// visual variety across the 3 options instead of relying on the model to
-// naturally avoid picking similar moods. Claude only handles the parts that
-// benefit from actually looking at the photo: the hook text and logo corner.
-const PHOTO_STYLING_SYSTEM_PROMPT_AUTO = `You are a social media copywriter looking at a customer's photo for a brand's post.
+// The color-grade/mood (which of the 12 rendering "trend styles" in
+// image-filter.ts) is derived from Claude's own coverStyleId pick via
+// COVER_STYLE_TO_TREND_STYLE, not random anymore — but the COMPOSITION
+// archetype (which of the 10 catalogue styles) genuinely benefits from
+// Claude looking at the photo, unlike the old random trend-style approach
+// which had no reasoning behind it at all.
+const PHOTO_STYLING_SYSTEM_PROMPT_AUTO = `You are a XiaoHongShu content strategist looking at a customer's photo for a brand's post.
+
+${COVER_STYLE_CATALOGUE}
+
+First, deliberate across all 10 styles above and pick the 3 that fit THIS SPECIFIC photo best — consider lighting, subject, composition, and what story the image already tells. They must be 3 DISTINCT styles (never repeat one), ranked best-fit first. For each pick, write "coverStyleReason": one short sentence, specific to this photo, explaining why that style fits (not a generic description of the style itself).
 
 ${FACE_OVERLAP_RULE}
 
-Then propose 3 DISTINCT hook-text options for the customer to choose between — vary the angle/wording meaningfully across the 3 (don't make them near-duplicates of each other). For each option decide:
+Then, for each of your 3 picks, write a hook-text option tailored to that specific style's own caption formula (e.g. a Before/After pick wants "[starting point] → [result]" framing; a Confessional/Story Hook pick wants a secret/reveal angle, not a plain description; a Bold Headline pick wants "[number] + [pain point] + [result]"; use the same logic for whichever styles you picked) — vary the angle/wording meaningfully across the 3, don't make them near-duplicates. For each option decide:
 
-1. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — ${HOOK_TEXT_RULES} Punchy and curiosity-driven, matching the brand's tone, not a generic slogan.
-2. ${LOGO_POSITION_RULE}
+1. coverStyleId: the catalogue style number (1-10) this option uses.
+2. coverStyleReason: as described above.
+3. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — ${HOOK_TEXT_RULES} Punchy and curiosity-driven, matching the brand's tone and the picked style's formula, not a generic slogan.
+4. ${LOGO_POSITION_RULE}
 
-Write hookText in the language given by "Output language" in the context, if present.
+Write hookText and coverStyleReason in the language given by "Output language" in the context, if present.
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-{"faceOverlap":{"top":false,"middle":true,"bottom":false},"leastBadPosition":"top","options":[{"hookText":"...","logoPosition":"bottom-right"},{"hookText":"...","logoPosition":"bottom-left"},{"hookText":"...","logoPosition":"bottom-right"}]}`;
+{"faceOverlap":{"top":false,"middle":true,"bottom":false},"leastBadPosition":"top","options":[{"coverStyleId":1,"coverStyleReason":"...","hookText":"...","logoPosition":"bottom-right"},{"coverStyleId":9,"coverStyleReason":"...","hookText":"...","logoPosition":"bottom-left"},{"coverStyleId":5,"coverStyleReason":"...","hookText":"...","logoPosition":"bottom-right"}]}`;
 
 const PHOTO_STYLING_SYSTEM_PROMPT_CUSTOM = `You are a social media copywriter looking at a customer's photo for a brand's post. The customer already wrote their own caption text (given as "Customer's text" in the context) that they want overlaid on the photo — refine it into a punchy, scroll-stopping short line for a raster overlay, keeping their core meaning and language, just tightening the wording. ${HOOK_TEXT_RULES} If it's already short and punchy, keep it close to as-is rather than rewriting for the sake of it.
 
@@ -598,13 +641,29 @@ export async function analyzePhotoForStyling(input: {
       validLogoPositions.includes(o.logoPosition as LogoPosition),
   );
   const textPositions = resolveTextPositions(parsed, validOptions.length);
+  // Dedupe by coverStyleId in case the model repeats one despite the
+  // distinct-picks instruction — keeps the 3 shown options genuinely
+  // different, same reasoning as the old random trend-style assignment.
+  const seenStyleIds = new Set<number>();
   const plans = validOptions
-    .map((o, i) => ({
-      hookText: sanitizeHookText(o.hookText as string),
-      logoPosition: o.logoPosition as LogoPosition,
-      textPosition: textPositions[i],
-    }))
-    .filter((o) => o.hookText.length > 0);
+    .map((o, i) => {
+      const rawId = typeof o.coverStyleId === "number" ? o.coverStyleId : Number(o.coverStyleId);
+      const coverStyleId = Number.isInteger(rawId) && COVER_STYLE_NAMES[rawId] ? rawId : undefined;
+      return {
+        hookText: sanitizeHookText(o.hookText as string),
+        logoPosition: o.logoPosition as LogoPosition,
+        textPosition: textPositions[i],
+        coverStyleId,
+        coverStyleReason: typeof o.coverStyleReason === "string" ? o.coverStyleReason.trim() : undefined,
+      };
+    })
+    .filter((o) => o.hookText.length > 0)
+    .filter((o) => {
+      if (o.coverStyleId === undefined) return true;
+      if (seenStyleIds.has(o.coverStyleId)) return false;
+      seenStyleIds.add(o.coverStyleId);
+      return true;
+    });
 
   return plans.length > 0 ? plans.slice(0, 3) : buildTemplateStylingPlans(input.locale);
 }

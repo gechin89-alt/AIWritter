@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { applyBrandStyle, pickRandomTrendStyles } from "@/lib/image-filter";
-import { analyzePhotoForStyling, AiUnavailableError, type PhotoStylingPlan, type TextMode } from "@/lib/anthropic";
+import { applyBrandStyle, pickRandomTrendStyles, COVER_STYLE_TO_TREND_STYLE, type TrendStyle } from "@/lib/image-filter";
+import {
+  analyzePhotoForStyling,
+  AiUnavailableError,
+  COVER_STYLE_NAMES,
+  type PhotoStylingPlan,
+  type TextMode,
+} from "@/lib/anthropic";
 import { readImageAsBase64 } from "@/lib/media";
 import { fetchAsBuffer } from "@/lib/cloudinary";
 
@@ -112,11 +118,32 @@ export async function POST(req: NextRequest) {
     const plans: PhotoStylingPlan[] =
       textMode === "auto" ? rawPlans : [rawPlans[0], rawPlans[0], rawPlans[0]].filter(Boolean);
 
-    // Randomly assign a DISTINCT trend style per variant so the photos shown
-    // look genuinely different from each other, matching XHS's current
-    // viral look, instead of Claude's own style pick (which tended to
-    // converge on similar moods across the 3 options).
-    const trendStyles = pickRandomTrendStyles(plans.length);
+    let trendStyles: TrendStyle[];
+    if (textMode === "auto") {
+      // Each "auto" plan carries Claude's own reasoned coverStyleId (which
+      // of the 10 XHS_Viral_Cover_Catalogue.md archetypes fits this photo) —
+      // map that to its rendering recipe instead of assigning at random.
+      // Anything missing a valid id (shouldn't normally happen) falls back
+      // to a random, not-yet-used style so it still looks distinct.
+      const used = new Set<TrendStyle>();
+      let fallbackPool: TrendStyle[] | null = null;
+      trendStyles = plans.map((plan) => {
+        const mapped = plan.coverStyleId ? COVER_STYLE_TO_TREND_STYLE[plan.coverStyleId] : undefined;
+        if (mapped && !used.has(mapped)) {
+          used.add(mapped);
+          return mapped;
+        }
+        if (!fallbackPool) fallbackPool = pickRandomTrendStyles(plans.length);
+        const fallback = fallbackPool.find((s) => !used.has(s)) ?? fallbackPool[0];
+        used.add(fallback);
+        return fallback;
+      });
+    } else {
+      // Randomly assign a DISTINCT trend style per variant so the photos
+      // shown look genuinely different from each other — no coverStyleId
+      // exists here since the text itself doesn't vary in these modes.
+      trendStyles = pickRandomTrendStyles(plans.length);
+    }
 
     const variants = await Promise.all(
       plans.map((plan, i) =>
@@ -134,7 +161,21 @@ export async function POST(req: NextRequest) {
     if (variants.length === 0) {
       return NextResponse.json({ path: mediaPath, variants: [], filtered: false });
     }
-    return NextResponse.json({ path: variants[0], variants, filtered: true });
+
+    // Transient UI metadata for the picker screen only — not persisted with
+    // the submission, so a customer can see WHY each option was suggested
+    // without us needing to store/replay it later.
+    const variantMeta =
+      textMode === "auto"
+        ? plans.map((plan) => ({
+            coverStyleName: plan.coverStyleId
+              ? COVER_STYLE_NAMES[plan.coverStyleId]?.[locale === "en" ? "en" : "zh"]
+              : undefined,
+            coverStyleReason: plan.coverStyleReason,
+          }))
+        : undefined;
+
+    return NextResponse.json({ path: variants[0], variants, variantMeta, filtered: true });
   } catch (err) {
     if (err instanceof AiUnavailableError) {
       return NextResponse.json({ path: mediaPath, variants: [], filtered: false, aiUnavailable: true });

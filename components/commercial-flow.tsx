@@ -101,6 +101,12 @@ export function CommercialFlow({
   const [uploading, setUploading] = useState(false);
   const [styledPhotoPath, setStyledPhotoPath] = useState<string | null>(null);
   const [photoVariants, setPhotoVariants] = useState<string[]>([]);
+  // Transient, UI-only — why each "auto" mode variant was suggested (which
+  // of the 10 XHS cover archetypes it uses, and Claude's photo-specific
+  // reason). Not persisted with the submission. Empty for custom/none modes.
+  const [photoVariantMeta, setPhotoVariantMeta] = useState<
+    { coverStyleName?: string; coverStyleReason?: string }[]
+  >([]);
   const [previewingVariant, setPreviewingVariant] = useState<string | null>(null);
   const [stylingPhoto, setStylingPhoto] = useState(false);
   // Defaults to "auto" so uploading a photo with no extra taps just works;
@@ -290,20 +296,27 @@ export function CommercialFlow({
               them off-screen with no visible scrollbar, so they looked like
               they never rendered at all. A 3-column grid always fits. */}
           <div className="mt-2 grid grid-cols-3 gap-2">
-            {photoVariants.map((variantPath) => (
+            {photoVariants.map((variantPath, i) => (
               <button
                 key={variantPath}
                 type="button"
                 onClick={() => setPreviewingVariant(variantPath)}
-                className="aspect-square overflow-hidden rounded-lg border-2 border-transparent hover:border-brand"
+                className="flex flex-col gap-1"
               >
-                <Image
-                  src={variantPath}
-                  alt=""
-                  width={96}
-                  height={96}
-                  className="h-full w-full object-cover"
-                />
+                <span className="aspect-square overflow-hidden rounded-lg border-2 border-transparent hover:border-brand">
+                  <Image
+                    src={variantPath}
+                    alt=""
+                    width={96}
+                    height={96}
+                    className="h-full w-full object-cover"
+                  />
+                </span>
+                {photoVariantMeta[i]?.coverStyleName && (
+                  <span className="line-clamp-1 text-center text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+                    {photoVariantMeta[i].coverStyleName}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -320,6 +333,17 @@ export function CommercialFlow({
               height={480}
               className="max-h-[70vh] w-auto rounded-lg object-contain"
             />
+            {(() => {
+              const meta = photoVariantMeta[photoVariants.indexOf(previewingVariant)];
+              if (!meta?.coverStyleReason) return null;
+              return (
+                <p className="max-w-xs text-center text-xs text-zinc-500 dark:text-zinc-400">
+                  {meta.coverStyleName && <span className="font-medium text-zinc-700 dark:text-zinc-300">{meta.coverStyleName}</span>}
+                  {meta.coverStyleName ? " — " : ""}
+                  {meta.coverStyleReason}
+                </p>
+              );
+            })()}
             <button
               type="button"
               onClick={() => {
@@ -506,6 +530,7 @@ export function CommercialFlow({
     setMediaPath(null);
     setStyledPhotoPath(null);
     setPhotoVariants([]);
+    setPhotoVariantMeta([]);
     if (!file) {
       setMediaFile(null);
       // Removing the photo resets the text-mode question so it's asked
@@ -531,6 +556,7 @@ export function CommercialFlow({
     setTextModeChoice(mode);
     setStyledPhotoPath(null);
     setPhotoVariants([]);
+    setPhotoVariantMeta([]);
     setStylingPhoto(true);
     setError(null);
     try {
@@ -550,6 +576,7 @@ export function CommercialFlow({
         if (filterData.filtered && variants.length > 1) {
           // Let the customer pick their favorite of the 3 AI-styled options.
           setPhotoVariants(variants);
+          setPhotoVariantMeta(filterData.variantMeta ?? []);
         } else if (filterData.filtered && variants.length === 1) {
           setStyledPhotoPath(variants[0]);
         }

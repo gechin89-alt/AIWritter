@@ -348,13 +348,38 @@ const TREND_STYLES: Record<TrendStyle, TrendConfig> = {
  * Randomly assigns `count` DISTINCT trend styles from the full curated set —
  * used so the several photo variants shown to a customer are guaranteed to
  * look genuinely different from each other, rather than hoping the AI
- * naturally avoids picking similar moods.
+ * naturally avoids picking similar moods. Still used for "custom"/"none"
+ * text modes, which only produce one shared styling plan (no coverStyleId
+ * to map from) — see COVER_STYLE_TO_TREND_STYLE for "auto" mode.
  */
 export function pickRandomTrendStyles(count: number): TrendStyle[] {
   const keys = Object.keys(TREND_STYLES) as TrendStyle[];
   const shuffled = [...keys].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, count);
 }
+
+/**
+ * Maps each of the 10 XHS_Viral_Cover_Catalogue.md composition archetypes
+ * (see COVER_STYLE_NAMES in lib/anthropic.ts — Claude picks WHICH of these
+ * fits a given photo) to whichever of the 12 rendering trend styles above
+ * best matches that archetype's mood, so "auto" mode's 3 variants are
+ * styled from Claude's own reasoned picks instead of a random assignment.
+ * Curated by hand; 2 trend styles (dreamySoft's near-duplicate use aside,
+ * brightClean already used) are intentionally left unmapped here and still
+ * only reachable via the random assignment on other text modes.
+ */
+export const COVER_STYLE_TO_TREND_STYLE: Record<number, TrendStyle> = {
+  1: "goldenHour", // Real-Person Direct Shot — warm, soft, natural
+  2: "brightClean", // Before/After Transformation — crisp clarity to show the difference
+  3: "tiktokViral", // Bold Headline / Color Block — high saturation, punchy
+  4: "kodakPortra", // Pain Point + Contrast Portrait — natural, trustworthy
+  5: "creamyBeige", // Confessional / Story Hook — warm, lived-in
+  6: "cinematic", // Reveal-Half Suspense Hook — moody, shadowed
+  7: "dreamySoft", // Two-Person Interactive Frame — soft social warmth
+  8: "mochaBrown", // Cross-Category Mashup — distinct, unexpected mood
+  9: "earthTone", // Real-Life / Lived-In Scene — natural, unstaged
+  10: "quietLuxury", // Minimalist Infographic — clean, understated
+};
 
 /**
  * Temporary test-only helper: applies a curated trend-style color grade
