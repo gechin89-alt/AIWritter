@@ -5,7 +5,6 @@ import { getSession } from "@/lib/auth";
 import { applyBrandStyle, pickRandomTrendStyles, COVER_STYLE_TO_TREND_STYLE, type TrendStyle } from "@/lib/image-filter";
 import {
   analyzePhotoForStyling,
-  AiUnavailableError,
   COVER_STYLE_NAMES,
   type PhotoStylingPlan,
   type TextMode,
@@ -176,10 +175,11 @@ export async function POST(req: NextRequest) {
         : undefined;
 
     return NextResponse.json({ path: variants[0], variants, variantMeta, filtered: true });
-  } catch (err) {
-    if (err instanceof AiUnavailableError) {
-      return NextResponse.json({ path: mediaPath, variants: [], filtered: false, aiUnavailable: true });
-    }
+  } catch {
+    // analyzePhotoForStyling already degrades to offline template styling
+    // on AiUnavailableError internally, so reaching here means something
+    // else went wrong (e.g. sharp/Cloudinary) — the customer still gets
+    // their unstyled photo rather than a hard failure.
     return NextResponse.json({ path: mediaPath, variants: [], filtered: false });
   }
 }

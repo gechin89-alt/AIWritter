@@ -553,7 +553,13 @@ export async function analyzePhotoForStyling(input: {
 }): Promise<PhotoStylingPlan[]> {
   const textMode = input.textMode ?? "auto";
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Used both when no key is configured at all, and when the API is
+  // reachable but out of credit mid-request (see catch block below) — the
+  // actual photo rendering (color grade, logo, text overlay) happens
+  // locally via sharp regardless, so this still produces a genuinely
+  // styled photo, just with a generic (non-photo-specific) hook line
+  // instead of an AI-reasoned one, until the key has credit again.
+  function templateFallback(): PhotoStylingPlan[] {
     if (textMode === "auto") return buildTemplateStylingPlans(input.locale);
     const fallback = buildTemplateStylingPlans(input.locale)[0];
     return [
@@ -563,6 +569,33 @@ export async function analyzePhotoForStyling(input: {
     ];
   }
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return templateFallback();
+  }
+
+  try {
+    return await analyzePhotoForStylingViaAi(input, textMode);
+  } catch (err) {
+    if (err instanceof AiUnavailableError) {
+      return templateFallback();
+    }
+    throw err;
+  }
+}
+
+async function analyzePhotoForStylingViaAi(
+  input: {
+    imageBase64: string;
+    imageMediaType: string;
+    brandName?: string;
+    productDescription?: string;
+    locale?: "en" | "zh";
+    textMode?: TextMode;
+    customText?: string;
+    needsLogoPosition?: boolean;
+  },
+  textMode: TextMode,
+): Promise<PhotoStylingPlan[]> {
   const baseLines = [
     input.locale
       ? `Output language: ${input.locale === "zh" ? "Chinese (Simplified)" : "English"}`

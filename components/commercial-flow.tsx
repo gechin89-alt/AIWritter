@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import { ChoiceGroupWithOther } from "./choice-group-with-other";
@@ -161,6 +161,10 @@ export function CommercialFlow({
     null,
   );
   const [clarifyAnswer, setClarifyAnswer] = useState("");
+  // A synchronous ref, not state — state-based disabling alone left a race
+  // window where two fast clicks/taps could both fire handleClarifySubmit
+  // before "loading" actually re-rendered, sending the same reply twice.
+  const submittingReplyRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -771,15 +775,20 @@ export function CommercialFlow({
   }
 
   async function handleClarifySubmit() {
-    if (!clarifyAnswer.trim()) return;
-    const nextHistory: ChatTurn[] = [...history, { role: "user", content: clarifyAnswer }];
-    // Show the reply as a sent bubble immediately, not only once a reply
-    // comes back — otherwise the textarea clears on send but nothing
-    // visible confirms the message was actually captured while the request
-    // is in flight, which reads as "my typed reply just disappeared".
-    setHistory(nextHistory);
-    setClarifyAnswer("");
-    await callGenerate(nextHistory);
+    if (submittingReplyRef.current || !clarifyAnswer.trim()) return;
+    submittingReplyRef.current = true;
+    try {
+      const nextHistory: ChatTurn[] = [...history, { role: "user", content: clarifyAnswer }];
+      // Show the reply as a sent bubble immediately, not only once a reply
+      // comes back — otherwise the textarea clears on send but nothing
+      // visible confirms the message was actually captured while the request
+      // is in flight, which reads as "my typed reply just disappeared".
+      setHistory(nextHistory);
+      setClarifyAnswer("");
+      await callGenerate(nextHistory);
+    } finally {
+      submittingReplyRef.current = false;
+    }
   }
 
   function handleReupload() {
@@ -998,25 +1007,35 @@ export function CommercialFlow({
           </button>
         )}
 
-        <textarea
-          value={clarifyAnswer}
-          onChange={(e) => setClarifyAnswer(e.target.value)}
-          rows={2}
-          placeholder={tc("chatReplyPlaceholder")}
-          className="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
-        />
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-        <button
-          onClick={handleClarifySubmit}
-          disabled={loading || aiUnavailable || !clarifyAnswer.trim()}
-          className={
-            aiUnavailable
-              ? "mt-3 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-              : "mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
-          }
-        >
-          {loading ? tc("sendingReply") : tc("sendReply")}
-        </button>
+        {loading ? (
+          // Hidden (not just disabled) while a reply is in flight — the
+          // customer's own message is already showing as a sent bubble
+          // above, so there's nothing left to do here until the AI answers;
+          // it reappears automatically if that answer is another question.
+          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">{tc("sendingReply")}</p>
+        ) : (
+          <>
+            <textarea
+              value={clarifyAnswer}
+              onChange={(e) => setClarifyAnswer(e.target.value)}
+              rows={2}
+              placeholder={tc("chatReplyPlaceholder")}
+              className="mt-3 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+            />
+            {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+            <button
+              onClick={handleClarifySubmit}
+              disabled={aiUnavailable || !clarifyAnswer.trim()}
+              className={
+                aiUnavailable
+                  ? "mt-3 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+                  : "mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+              }
+            >
+              {tc("sendReply")}
+            </button>
+          </>
+        )}
       </div>
     );
   }
