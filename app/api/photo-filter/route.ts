@@ -19,12 +19,18 @@ export async function POST(req: NextRequest) {
     locale,
     textMode: rawTextMode,
     customText,
+    forcePreview,
   }: {
     mediaPath?: string;
     campaignSlug?: string;
     locale?: "en" | "zh";
     textMode?: TextMode;
     customText?: string;
+    /** Admin's quick photo-effect test button — always show the full AI
+     * styling even if this campaign hasn't had a brand color/logo set yet,
+     * since the whole point is previewing the effect before committing to
+     * a look. Never set by the real customer-facing flow. */
+    forcePreview?: boolean;
   } = await req.json();
 
   if (!mediaPath) {
@@ -58,8 +64,9 @@ export async function POST(req: NextRequest) {
     }
     // Commercial campaigns only get styled once an admin has opted in by
     // setting a brand color or logo — avoids applying random styling to
-    // campaigns nobody configured a look for.
-    if (!campaign.brandColor && !campaign.logoPath) {
+    // campaigns nobody configured a look for. forcePreview (admin's test
+    // button only) bypasses this so the effect can be previewed up front.
+    if (!campaign.brandColor && !campaign.logoPath && !forcePreview) {
       return NextResponse.json({ path: mediaPath, variants: [], filtered: false });
     }
     brandColorHex = campaign.brandColor;

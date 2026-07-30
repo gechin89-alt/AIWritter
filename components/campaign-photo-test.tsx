@@ -62,7 +62,13 @@ export function CampaignPhotoTest({
       const filterRes = await fetch("/api/photo-filter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaPath: uploadData.path, campaignSlug, locale, textMode: "auto" }),
+        body: JSON.stringify({
+          mediaPath: uploadData.path,
+          campaignSlug,
+          locale,
+          textMode: "auto",
+          forcePreview: true,
+        }),
       });
       if (!filterRes.ok) throw new Error("filter failed");
       const filterData = await filterRes.json();

@@ -156,7 +156,13 @@ async function renderCaptionOverlay(
   // guarantee text pops on any background.
   const avgLuminance = (relativeLuminance(gradientColors[0]) + relativeLuminance(gradientColors[1])) / 2;
   const outlineColor = avgLuminance > 0.55 ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.9)";
-  const subtitleFillColor = avgLuminance > 0.55 ? "rgba(40, 40, 40, 0.95)" : "rgba(255, 255, 255, 0.95)";
+  // The subtitle is always white-on-dark-outline regardless of the
+  // headline's own gradient tone — unlike the headline, it doesn't get to
+  // pick its position for a favorable background, so it needs the single
+  // most universally legible combo rather than one that matches the
+  // headline's mood but can land dark-on-dark against a busy photo.
+  const subtitleFillColor = "rgba(255, 255, 255, 0.95)";
+  const subtitleOutlineColor = "rgba(20, 20, 20, 0.85)";
   const lineHeight = fontSize * 1.25;
   const subtitleFontSize = Math.round(fontSize * 0.42);
   const subtitleGap = Math.round(fontSize * 0.32);
@@ -194,7 +200,7 @@ async function renderCaptionOverlay(
     ctx.shadowOffsetY = 2;
     ctx.lineWidth = subtitleLineWidth;
     ctx.lineJoin = "round";
-    ctx.strokeStyle = outlineColor;
+    ctx.strokeStyle = subtitleOutlineColor;
     ctx.strokeText(subtitle!.trim(), width / 2, y);
 
     ctx.shadowColor = "transparent";
