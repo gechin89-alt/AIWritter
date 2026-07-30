@@ -82,6 +82,79 @@ function relativeLuminance(hex: string): number {
   return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
 }
 
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) * 60;
+  else if (max === gn) h = ((bn - rn) / d + 2) * 60;
+  else h = ((rn - gn) / d + 4) * 60;
+  return { h, s, l };
+}
+
+type HueBucket = "neutral" | "red" | "warm" | "green" | "cyan" | "blue" | "purple";
+
+function classifyHue(h: number, s: number): HueBucket {
+  if (s < 0.14) return "neutral";
+  if (h < 20 || h >= 335) return "red";
+  if (h < 70) return "warm"; // orange/yellow
+  if (h < 170) return "green";
+  if (h < 200) return "cyan";
+  if (h < 260) return "blue";
+  return "purple";
+}
+
+// Font-color pairing derived from a designer color-pairing reference the
+// client shared (white/light bg -> a darker, often hue-matched ink; the
+// suited dark ink hue varies by background hue; black/dark bg -> near-
+// universally white/light regardless of hue, so unlike the light case we
+// don't need a per-hue table there). Background is approximated from the
+// trend style's own two-color captionGradient (no per-pixel photo sampling)
+// — same proxy already used elsewhere in this file for contrast decisions.
+const LIGHT_BG_INK: Record<HueBucket, string> = {
+  neutral: "rgba(26, 26, 26, 0.92)",
+  red: "rgba(58, 37, 48, 0.92)", // dark purple/coffee, per "浅色背景+纯白或深紫/褐色"
+  warm: "rgba(33, 26, 16, 0.92)", // "淡黄底黑字最不容易发生色散"
+  green: "rgba(255, 255, 255, 0.92)", // "绿色背景配纯白/橘黄/浅黄效果最好"
+  cyan: "rgba(18, 51, 48, 0.92)",
+  blue: "rgba(22, 35, 63, 0.92)", // "浅蓝背景配深蓝文字"
+  purple: "rgba(26, 26, 26, 0.92)",
+};
+
+/**
+ * Picks a legible caption ink color (+ matching shadow) for a solid-fill
+ * text treatment (paragraph/vertical), based on the trend style's own
+ * caption-mood color rather than always defaulting to plain white — a fixed
+ * white fill washed out on lighter/warmer trend styles.
+ */
+function pickCaptionInk(gradientColors: [string, string]): { fill: string; shadow: string } {
+  const a = hexToRgb(gradientColors[0]) ?? { r: 40, g: 40, b: 40 };
+  const b = hexToRgb(gradientColors[1]) ?? { r: 20, g: 20, b: 20 };
+  const avg = { r: (a.r + b.r) / 2, g: (a.g + b.g) / 2, b: (a.b + b.b) / 2 };
+  const { h, s, l } = rgbToHsl(avg.r, avg.g, avg.b);
+
+  if (l < 0.4) {
+    // Dark background: white/light-warm text is near-universally the right
+    // call regardless of hue — blue/dark-red/purple text on a dark
+    // background is explicitly called out as illegible.
+    return { fill: "rgba(255, 255, 255, 0.92)", shadow: "rgba(0, 0, 0, 0.55)" };
+  }
+  const bucket = classifyHue(h, s);
+  const fill = LIGHT_BG_INK[bucket];
+  // Every bucket here is a dark ink except "green" (white text reads better
+  // on a green background per the reference) — a light-fill needs a dark
+  // shadow for edge definition, the opposite of the dark-ink buckets.
+  const shadow = bucket === "green" ? "rgba(0, 0, 0, 0.5)" : "rgba(255, 255, 255, 0.6)";
+  return { fill, shadow };
+}
+
 // Height reserved for the caption overlay — shared with callers so they can
 // work out where to composite it (e.g. vertically centering a "middle"
 // placement) without duplicating the formula. A headline+subtitle pair
@@ -151,10 +224,10 @@ const DEFAULT_TEXT_TREATMENT = { kind: "headline", chip: false, align: "center" 
  * driven by however many lines the caption actually has, not the fixed
  * getCaptionAreaHeight band.
  *
- * Color pairs with the trend style's own caption gradient the same way the
- * headline treatment's outline does (see avgLuminance below) rather than
- * always being plain white — a fixed white fill washed out on lighter/warmer
- * trend styles.
+ * Color pairs with the trend style's own caption gradient via
+ * pickCaptionInk() — a hue-aware ink pick (not just plain white) — rather
+ * than always being plain white, which washed out on lighter/warmer trend
+ * styles.
  */
 async function renderParagraphOverlay(
   paragraph: string,
@@ -182,10 +255,7 @@ async function renderParagraphOverlay(
   const anchorX = align === "left" ? marginX : width / 2;
   const startY = areaHeight / 2 - (lineHeight * (lines.length - 1)) / 2;
 
-  const avgLuminance = (relativeLuminance(gradientColors[0]) + relativeLuminance(gradientColors[1])) / 2;
-  const isLight = avgLuminance > 0.55;
-  const fillColor = isLight ? "rgba(40, 32, 26, 0.92)" : "rgba(255, 255, 255, 0.92)";
-  const shadowColor = isLight ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.55)";
+  const { fill: fillColor, shadow: shadowColor } = pickCaptionInk(gradientColors);
 
   for (let i = 0; i < lines.length; i++) {
     const y = startY + i * lineHeight;
@@ -225,10 +295,7 @@ async function renderVerticalOverlay(
   ctx.textAlign = "center";
   ctx.font = `${fontSize}px "${family}"`;
 
-  const avgLuminance = (relativeLuminance(gradientColors[0]) + relativeLuminance(gradientColors[1])) / 2;
-  const isLight = avgLuminance > 0.55;
-  const fillColor = isLight ? "rgba(40, 32, 26, 0.88)" : "rgba(255, 255, 255, 0.88)";
-  const shadowColor = isLight ? "rgba(255, 255, 255, 0.55)" : "rgba(0, 0, 0, 0.5)";
+  const { fill: fillColor, shadow: shadowColor } = pickCaptionInk(gradientColors);
 
   const anchorX = areaWidth / 2;
   const startY = height / 2 - totalTextHeight / 2 + charSpacing / 2;
