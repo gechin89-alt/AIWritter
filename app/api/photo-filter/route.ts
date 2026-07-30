@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
           logoBuffer,
           logoPosition: plan.logoPosition,
           textPosition: plan.textPosition,
+          coverStyleId: plan.coverStyleId,
         }),
       ),
     );

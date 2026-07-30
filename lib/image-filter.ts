@@ -111,13 +111,44 @@ function splitIntoTwoLines(text: string): [string, string] {
   return [text.slice(0, cut).trim(), text.slice(cut).trim()];
 }
 
+export type TextTreatment = { chip: boolean; align: "left" | "center" };
+
 /**
- * Text sits directly on the photo — no solid banner box — with a gradient
- * fill, a contrast outline, and a soft drop shadow for legibility. Wraps to
- * a second line (shrinking to fit) if the headline is too wide for one
- * line. When a subtitle is given, renders it as a smaller supporting line
- * below the headline — matching real XHS "大字报" covers, which pair a bold
- * short hook with a softer second line rather than one flat line of text.
+ * Which of the 10 XHS_Viral_Cover_Catalogue.md cover styles get a solid
+ * poster-style color block behind the text ("大字报") vs. text floating
+ * directly on the photo, and left vs. center alignment — without this, the
+ * 3 shown variants only differed by color grade, which read as "basically
+ * the same" (block-style covers are one of the catalogue's own 10
+ * archetypes, not just a color choice). See COVER_STYLE_NAMES in
+ * lib/anthropic.ts for what each id is.
+ */
+export const COVER_STYLE_TEXT_TREATMENT: Record<number, TextTreatment> = {
+  1: { chip: false, align: "left" }, // Real-Person Direct Shot
+  2: { chip: true, align: "center" }, // Before/After Transformation
+  3: { chip: true, align: "left" }, // Bold Headline / Color Block
+  4: { chip: false, align: "left" }, // Pain Point + Contrast Portrait
+  5: { chip: false, align: "left" }, // Confessional / Story Hook
+  6: { chip: true, align: "center" }, // Reveal-Half Suspense Hook
+  7: { chip: false, align: "center" }, // Two-Person Interactive Frame
+  8: { chip: true, align: "center" }, // Cross-Category Mashup
+  9: { chip: false, align: "left" }, // Real-Life / Lived-In Scene
+  10: { chip: true, align: "left" }, // Minimalist Infographic
+};
+
+const DEFAULT_TEXT_TREATMENT: TextTreatment = { chip: false, align: "center" };
+
+/**
+ * Two looks depending on treatment.chip:
+ * - No chip: text sits directly on the photo — gradient fill, contrast
+ *   outline, soft drop shadow for legibility on an unpredictable background.
+ * - Chip: a solid poster-style color block behind the text (real flat
+ *   color, not the gradient), with plain high-contrast text on top instead
+ *   of an outline — reads as a genuinely different composition, not just a
+ *   different color grade of the same floating-text layout.
+ * Wraps to a second line (shrinking to fit) if the headline is too wide for
+ * one line. When a subtitle is given, renders it as a smaller supporting
+ * line below the headline — matching real XHS "大字报" covers, which pair a
+ * bold short hook with a softer second line rather than one flat line.
  * Returns a transparent PNG overlay sized to getCaptionAreaHeight(height).
  */
 async function renderCaptionOverlay(
@@ -127,6 +158,7 @@ async function renderCaptionOverlay(
   gradientColors: [string, string],
   captionFont: CaptionFont,
   subtitle?: string,
+  treatment: TextTreatment = DEFAULT_TEXT_TREATMENT,
 ): Promise<Buffer> {
   const hasSubtitle = Boolean(subtitle?.trim());
   const areaHeight = getCaptionAreaHeight(height, hasSubtitle);
@@ -135,10 +167,13 @@ async function renderCaptionOverlay(
 
   const canvas = createCanvas(width, areaHeight);
   const ctx = canvas.getContext("2d");
-  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+  ctx.textAlign = treatment.align === "left" ? "left" : "center";
 
-  const maxLineWidth = width * 0.86;
+  const marginX = width * 0.08;
+  const anchorX = treatment.align === "left" ? marginX : width / 2;
+
+  const maxLineWidth = width * (treatment.align === "left" ? 0.78 : 0.86);
   ctx.font = `${baseFontSize}px "${family}"`;
   const fitsOneLine = ctx.measureText(text).width <= maxLineWidth;
 
@@ -170,10 +205,51 @@ async function renderCaptionOverlay(
   const totalBlockHeight = headlineBlockHeight + (hasSubtitle ? subtitleGap + subtitleFontSize : 0);
   const startY = areaHeight / 2 - totalBlockHeight / 2 + lineHeight / 2;
 
+  let onChipTextColor = "rgba(255, 255, 255, 0.95)";
+  if (treatment.chip) {
+    ctx.font = `${fontSize}px "${family}"`;
+    let maxTextWidth = 0;
+    for (const line of lines) maxTextWidth = Math.max(maxTextWidth, ctx.measureText(line).width);
+    if (hasSubtitle) {
+      ctx.font = `${subtitleFontSize}px "${family}"`;
+      maxTextWidth = Math.max(maxTextWidth, ctx.measureText(subtitle!.trim()).width);
+    }
+    const padX = fontSize * 0.5;
+    const padY = fontSize * 0.35;
+    const chipW = Math.min(width * 0.94, maxTextWidth + padX * 2);
+    const chipH = totalBlockHeight + padY * 2;
+    const chipX = treatment.align === "left" ? Math.max(width * 0.03, marginX - padX) : width / 2 - chipW / 2;
+    const chipY = areaHeight / 2 - chipH / 2;
+    const chipRgb = hexToRgb(gradientColors[0]) ?? { r: 20, g: 20, b: 20 };
+    const chipLuminance = (0.299 * chipRgb.r + 0.587 * chipRgb.g + 0.114 * chipRgb.b) / 255;
+    onChipTextColor = chipLuminance > 0.6 ? "rgba(20, 20, 20, 0.95)" : "rgba(255, 255, 255, 0.95)";
+
+    ctx.fillStyle = `rgba(${chipRgb.r}, ${chipRgb.g}, ${chipRgb.b}, 0.9)`;
+    const radius = Math.round(fontSize * 0.16);
+    ctx.beginPath();
+    ctx.moveTo(chipX + radius, chipY);
+    ctx.arcTo(chipX + chipW, chipY, chipX + chipW, chipY + chipH, radius);
+    ctx.arcTo(chipX + chipW, chipY + chipH, chipX, chipY + chipH, radius);
+    ctx.arcTo(chipX, chipY + chipH, chipX, chipY, radius);
+    ctx.arcTo(chipX, chipY, chipX + chipW, chipY, radius);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   ctx.font = `${fontSize}px "${family}"`;
   const lineWidth = Math.max(2, Math.round(fontSize * 0.09));
   for (let i = 0; i < lines.length; i++) {
     const y = startY + i * lineHeight;
+
+    if (treatment.chip) {
+      // Flat color block behind us already provides the contrast — an
+      // outline here would just look muddy against a color we picked
+      // ourselves, so plain high-contrast text is cleaner.
+      ctx.shadowColor = "transparent";
+      ctx.fillStyle = onChipTextColor;
+      ctx.fillText(lines[i], anchorX, y);
+      continue;
+    }
 
     ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
     ctx.shadowBlur = 10;
@@ -181,31 +257,40 @@ async function renderCaptionOverlay(
     ctx.lineWidth = lineWidth;
     ctx.lineJoin = "round";
     ctx.strokeStyle = outlineColor;
-    ctx.strokeText(lines[i], width / 2, y);
+    ctx.strokeText(lines[i], anchorX, y);
 
     // Fill goes on top without its own shadow — the stroke pass above
     // already provided the depth/contrast.
     ctx.shadowColor = "transparent";
     ctx.fillStyle = gradient;
-    ctx.fillText(lines[i], width / 2, y);
+    ctx.fillText(lines[i], anchorX, y);
   }
 
   if (hasSubtitle) {
     const y = startY + (lines.length - 1) * lineHeight + lineHeight / 2 + subtitleGap + subtitleFontSize / 2;
     ctx.font = `${subtitleFontSize}px "${family}"`;
-    const subtitleLineWidth = Math.max(1.5, Math.round(subtitleFontSize * 0.09));
 
+    if (treatment.chip) {
+      ctx.shadowColor = "transparent";
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = onChipTextColor;
+      ctx.fillText(subtitle!.trim(), anchorX, y);
+      ctx.globalAlpha = 1;
+      return canvas.toBuffer("image/png");
+    }
+
+    const subtitleLineWidth = Math.max(1.5, Math.round(subtitleFontSize * 0.09));
     ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 2;
     ctx.lineWidth = subtitleLineWidth;
     ctx.lineJoin = "round";
     ctx.strokeStyle = subtitleOutlineColor;
-    ctx.strokeText(subtitle!.trim(), width / 2, y);
+    ctx.strokeText(subtitle!.trim(), anchorX, y);
 
     ctx.shadowColor = "transparent";
     ctx.fillStyle = subtitleFillColor;
-    ctx.fillText(subtitle!.trim(), width / 2, y);
+    ctx.fillText(subtitle!.trim(), anchorX, y);
   }
 
   return canvas.toBuffer("image/png");
@@ -530,6 +615,11 @@ export async function applyBrandStyle(
     logoBuffer?: Buffer | null;
     logoPosition?: LogoPosition | null;
     textPosition?: TextPosition | null;
+    // Which of the 10 cover-catalogue styles this variant uses (see
+    // COVER_STYLE_TEXT_TREATMENT) — decides chip vs. floating text and
+    // alignment. Undefined (custom/none text modes) falls back to the
+    // previous floating-centered look.
+    coverStyleId?: number;
   },
 ): Promise<string> {
   const cfg = TREND_STYLES[options.trendStyle];
@@ -592,6 +682,16 @@ export async function applyBrandStyle(
     // different fonts — brand identity is already carried by the soft-light
     // wash above, applied to every variant regardless of style.
     const hasSubtitle = Boolean(options.subtitle?.trim());
+    const baseTreatment =
+      (options.coverStyleId !== undefined ? COVER_STYLE_TEXT_TREATMENT[options.coverStyleId] : undefined) ??
+      DEFAULT_TEXT_TREATMENT;
+    // "middle" sits directly over the busiest part of the photo (that's WHY
+    // it was picked over top/bottom — a face/subject blocked those bands) —
+    // floating gradient text there reads as covering the photo rather than a
+    // deliberate design choice, so force a solid chip block regardless of
+    // the cover style's own default.
+    const treatment: TextTreatment =
+      options.textPosition === "middle" ? { ...baseTreatment, chip: true } : baseTreatment;
     const overlayBuffer = await renderCaptionOverlay(
       options.hookText!.trim(),
       width,
@@ -599,6 +699,7 @@ export async function applyBrandStyle(
       cfg.captionGradient,
       cfg.fontKey,
       options.subtitle?.trim(),
+      treatment,
     );
     // XHS feed thumbnails get their top ~15% covered by the app's own UI
     // chrome, so "top" placement leaves that strip blank and sits in the
