@@ -150,6 +150,7 @@ export async function POST(req: NextRequest) {
           trendStyle: trendStyles[i],
           brandColorHex,
           hookText: plan.hookText,
+          subtitle: plan.subtitle,
           logoBuffer,
           logoPosition: plan.logoPosition,
           textPosition: plan.textPosition,

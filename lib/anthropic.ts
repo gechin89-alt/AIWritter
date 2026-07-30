@@ -398,6 +398,11 @@ export type TextMode = "auto" | "custom" | "none";
 
 export type PhotoStylingPlan = {
   hookText: string; // "" means no text overlay (textMode "none")
+  // A smaller supporting line under the headline (e.g. headline "深夜解压仪式"
+  // + subtitle "一滴精油，治愈一整天") — matches real XHS "大字报" covers,
+  // which pair a bold big-character hook with a softer secondary line
+  // instead of a single flat line of text. Only set in "auto" text mode.
+  subtitle?: string;
   logoPosition: LogoPosition;
   textPosition: TextPosition;
   // Which of the 10 viral XHS cover archetypes this variant is styled as
@@ -464,6 +469,14 @@ Report this as "faceOverlap": {"top":bool,"middle":bool,"bottom":bool}. Also rep
 
 const HOOK_TEXT_RULES = `one short line, or two lines if it reads naturally split (e.g. at a comma or natural phrase break), roughly 4-16 characters if Chinese, 3-10 words if English. Plain text only, no emoji (this renders as a raster overlay on the photo itself, not the post caption — emoji belongs in the post body instead). Never invent a specific unverified number/percentage/claim about the product's performance (e.g. a made-up "+300%" or "68cm→50cm") unless that exact figure was actually given in the product/brand context — some catalogue styles below (Before/After, Minimalist Infographic) naturally suggest number-driven phrasing, but a fabricated stat is a compliance risk, not just a style choice; write a punchy line without a specific invented number instead.`;
 
+// Used only in "auto" mode, alongside HOOK_TEXT_RULES — real XHS "大字报"
+// covers almost always pair a bold short headline with a softer second
+// line, not one flat line of text, which is what the previous single-
+// hookText-only rendering produced.
+const AUTO_HEADLINE_SUBTITLE_RULES = `hookText is the bold, big-character HEADLINE — one short punchy line, roughly 3-8 characters if Chinese, 2-5 words if English (shorter than a standalone hook line would be; the subtitle below carries the supporting detail, so the headline itself should be the single sharpest hook, not the whole message). ${HOOK_TEXT_RULES}
+
+subtitle: a smaller supporting line underneath the headline, roughly 6-16 characters if Chinese, 4-10 words if English — pairs with the headline the way real XHS "大字报"-style covers do (e.g. headline "深夜解压仪式" + subtitle "一滴精油，治愈一整天"). Write one that elaborates, softens, or adds a concrete supporting detail to the headline — never just repeat it in other words.`;
+
 // The color-grade/mood (which of the 12 rendering "trend styles" in
 // image-filter.ts) is derived from Claude's own coverStyleId pick via
 // COVER_STYLE_TO_TREND_STYLE, not random anymore — but the COMPOSITION
@@ -478,17 +491,17 @@ First, deliberate across all 10 styles above and pick the 3 that fit THIS SPECIF
 
 ${FACE_OVERLAP_RULE}
 
-Then, for each of your 3 picks, write a hook-text option tailored to that specific style's own caption formula (e.g. a Before/After pick wants "[starting point] → [result]" framing; a Confessional/Story Hook pick wants a secret/reveal angle, not a plain description; a Bold Headline pick wants "[number] + [pain point] + [result]"; use the same logic for whichever styles you picked) — vary the angle/wording meaningfully across the 3, don't make them near-duplicates. For each option decide:
+Then, for each of your 3 picks, write a headline+subtitle pair tailored to that specific style's own caption formula (e.g. a Before/After pick wants "[starting point] → [result]" framing; a Confessional/Story Hook pick wants a secret/reveal angle, not a plain description; a Bold Headline pick wants "[number] + [pain point] + [result]"; use the same logic for whichever styles you picked) — vary the angle/wording meaningfully across the 3, don't make them near-duplicates. For each option decide:
 
 1. coverStyleId: the catalogue style number (1-10) this option uses.
 2. coverStyleReason: as described above.
-3. hookText: a short, scroll-stopping line to overlay directly on the photo (like real viral social posts do) — ${HOOK_TEXT_RULES} Punchy and curiosity-driven, matching the brand's tone and the picked style's formula, not a generic slogan.
+3. hookText and subtitle: overlaid directly on the photo (like real viral social covers do), together forming a big-headline + small-supporting-line pair — ${AUTO_HEADLINE_SUBTITLE_RULES} Punchy and curiosity-driven, matching the brand's tone and the picked style's formula, not a generic slogan.
 4. ${LOGO_POSITION_RULE}
 
-Write hookText and coverStyleReason in the language given by "Output language" in the context, if present.
+Write hookText, subtitle, and coverStyleReason in the language given by "Output language" in the context, if present.
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-{"faceOverlap":{"top":false,"middle":true,"bottom":false},"leastBadPosition":"top","options":[{"coverStyleId":1,"coverStyleReason":"...","hookText":"...","logoPosition":"bottom-right"},{"coverStyleId":9,"coverStyleReason":"...","hookText":"...","logoPosition":"bottom-left"},{"coverStyleId":5,"coverStyleReason":"...","hookText":"...","logoPosition":"bottom-right"}]}`;
+{"faceOverlap":{"top":false,"middle":true,"bottom":false},"leastBadPosition":"top","options":[{"coverStyleId":1,"coverStyleReason":"...","hookText":"...","subtitle":"...","logoPosition":"bottom-right"},{"coverStyleId":9,"coverStyleReason":"...","hookText":"...","subtitle":"...","logoPosition":"bottom-left"},{"coverStyleId":5,"coverStyleReason":"...","hookText":"...","subtitle":"...","logoPosition":"bottom-right"}]}`;
 
 const PHOTO_STYLING_SYSTEM_PROMPT_CUSTOM = `You are a social media copywriter looking at a customer's photo for a brand's post. The customer already wrote their own caption text (given as "Customer's text" in the context) that they want overlaid on the photo — refine it into a punchy, scroll-stopping short line for a raster overlay, keeping their core meaning and language, just tightening the wording. ${HOOK_TEXT_RULES} If it's already short and punchy, keep it close to as-is rather than rewriting for the sake of it.
 
@@ -702,8 +715,11 @@ async function analyzePhotoForStylingViaAi(
     .map((o, i) => {
       const rawId = typeof o.coverStyleId === "number" ? o.coverStyleId : Number(o.coverStyleId);
       const coverStyleId = Number.isInteger(rawId) && COVER_STYLE_NAMES[rawId] ? rawId : undefined;
+      const subtitle =
+        typeof o.subtitle === "string" && o.subtitle.trim() ? sanitizeHookText(o.subtitle) : undefined;
       return {
         hookText: sanitizeHookText(o.hookText as string),
+        subtitle,
         logoPosition: o.logoPosition as LogoPosition,
         textPosition: textPositions[i],
         coverStyleId,

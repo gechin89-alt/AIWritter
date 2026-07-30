@@ -84,9 +84,10 @@ function relativeLuminance(hex: string): number {
 
 // Height reserved for the caption overlay — shared with callers so they can
 // work out where to composite it (e.g. vertically centering a "middle"
-// placement) without duplicating the formula.
-export function getCaptionAreaHeight(height: number): number {
-  return Math.round(height * 0.22);
+// placement) without duplicating the formula. A headline+subtitle pair
+// needs more vertical room than a single line.
+export function getCaptionAreaHeight(height: number, hasSubtitle = false): number {
+  return Math.round(height * (hasSubtitle ? 0.3 : 0.22));
 }
 
 const LINE_BREAK_CHARS = new Set([" ", ",", "，", "、", "！", "!", "？", "?", "。", "-", "·"]);
@@ -113,7 +114,10 @@ function splitIntoTwoLines(text: string): [string, string] {
 /**
  * Text sits directly on the photo — no solid banner box — with a gradient
  * fill, a contrast outline, and a soft drop shadow for legibility. Wraps to
- * a second line (shrinking to fit) if the text is too wide for one line.
+ * a second line (shrinking to fit) if the headline is too wide for one
+ * line. When a subtitle is given, renders it as a smaller supporting line
+ * below the headline — matching real XHS "大字报" covers, which pair a bold
+ * short hook with a softer second line rather than one flat line of text.
  * Returns a transparent PNG overlay sized to getCaptionAreaHeight(height).
  */
 async function renderCaptionOverlay(
@@ -122,9 +126,11 @@ async function renderCaptionOverlay(
   height: number,
   gradientColors: [string, string],
   captionFont: CaptionFont,
+  subtitle?: string,
 ): Promise<Buffer> {
-  const areaHeight = getCaptionAreaHeight(height);
-  const baseFontSize = Math.round(areaHeight * 0.3);
+  const hasSubtitle = Boolean(subtitle?.trim());
+  const areaHeight = getCaptionAreaHeight(height, hasSubtitle);
+  const baseFontSize = Math.round(areaHeight * (hasSubtitle ? 0.34 : 0.3));
   const family = getCaptionFontFamily(captionFont);
 
   const canvas = createCanvas(width, areaHeight);
@@ -138,7 +144,6 @@ async function renderCaptionOverlay(
 
   const lines = fitsOneLine ? [text] : splitIntoTwoLines(text);
   const fontSize = fitsOneLine ? baseFontSize : Math.round(baseFontSize * 0.74);
-  ctx.font = `${fontSize}px "${family}"`;
 
   const gradient = ctx.createLinearGradient(0, 0, width, 0);
   gradient.addColorStop(0, gradientColors[0]);
@@ -151,10 +156,16 @@ async function renderCaptionOverlay(
   // guarantee text pops on any background.
   const avgLuminance = (relativeLuminance(gradientColors[0]) + relativeLuminance(gradientColors[1])) / 2;
   const outlineColor = avgLuminance > 0.55 ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.9)";
-  const lineWidth = Math.max(2, Math.round(fontSize * 0.09));
+  const subtitleFillColor = avgLuminance > 0.55 ? "rgba(40, 40, 40, 0.95)" : "rgba(255, 255, 255, 0.95)";
   const lineHeight = fontSize * 1.25;
-  const startY = areaHeight / 2 - (lineHeight * (lines.length - 1)) / 2;
+  const subtitleFontSize = Math.round(fontSize * 0.42);
+  const subtitleGap = Math.round(fontSize * 0.32);
+  const headlineBlockHeight = lineHeight * lines.length;
+  const totalBlockHeight = headlineBlockHeight + (hasSubtitle ? subtitleGap + subtitleFontSize : 0);
+  const startY = areaHeight / 2 - totalBlockHeight / 2 + lineHeight / 2;
 
+  ctx.font = `${fontSize}px "${family}"`;
+  const lineWidth = Math.max(2, Math.round(fontSize * 0.09));
   for (let i = 0; i < lines.length; i++) {
     const y = startY + i * lineHeight;
 
@@ -171,6 +182,24 @@ async function renderCaptionOverlay(
     ctx.shadowColor = "transparent";
     ctx.fillStyle = gradient;
     ctx.fillText(lines[i], width / 2, y);
+  }
+
+  if (hasSubtitle) {
+    const y = startY + (lines.length - 1) * lineHeight + lineHeight / 2 + subtitleGap + subtitleFontSize / 2;
+    ctx.font = `${subtitleFontSize}px "${family}"`;
+    const subtitleLineWidth = Math.max(1.5, Math.round(subtitleFontSize * 0.09));
+
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    ctx.lineWidth = subtitleLineWidth;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = outlineColor;
+    ctx.strokeText(subtitle!.trim(), width / 2, y);
+
+    ctx.shadowColor = "transparent";
+    ctx.fillStyle = subtitleFillColor;
+    ctx.fillText(subtitle!.trim(), width / 2, y);
   }
 
   return canvas.toBuffer("image/png");
@@ -491,6 +520,7 @@ export async function applyBrandStyle(
     trendStyle: TrendStyle;
     brandColorHex?: string | null;
     hookText?: string | null;
+    subtitle?: string | null;
     logoBuffer?: Buffer | null;
     logoPosition?: LogoPosition | null;
     textPosition?: TextPosition | null;
@@ -555,14 +585,22 @@ export async function applyBrandStyle(
     // the 3 variants show genuinely different text colors, not just
     // different fonts — brand identity is already carried by the soft-light
     // wash above, applied to every variant regardless of style.
-    const overlayBuffer = await renderCaptionOverlay(options.hookText!.trim(), width, height, cfg.captionGradient, cfg.fontKey);
+    const hasSubtitle = Boolean(options.subtitle?.trim());
+    const overlayBuffer = await renderCaptionOverlay(
+      options.hookText!.trim(),
+      width,
+      height,
+      cfg.captionGradient,
+      cfg.fontKey,
+      options.subtitle?.trim(),
+    );
     // XHS feed thumbnails get their top ~15% covered by the app's own UI
     // chrome, so "top" placement leaves that strip blank and sits in the
     // upper-center third instead of flush against the top edge. "middle"
     // vertically centers instead, and "bottom" sits low but leaves clearance
     // above the bottom-corner logo — Claude picks whichever avoids the
     // photo's face(s) (or has the most open background if there's no face).
-    const areaHeight = getCaptionAreaHeight(height);
+    const areaHeight = getCaptionAreaHeight(height, hasSubtitle);
     const bottomLogoClearance = Math.round(height * 0.22);
     let top: number;
     if (options.textPosition === "middle") {
