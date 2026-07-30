@@ -115,9 +115,7 @@ function classifyHue(h: number, s: number): HueBucket {
 // client shared (white/light bg -> a darker, often hue-matched ink; the
 // suited dark ink hue varies by background hue; black/dark bg -> near-
 // universally white/light regardless of hue, so unlike the light case we
-// don't need a per-hue table there). Background is approximated from the
-// trend style's own two-color captionGradient (no per-pixel photo sampling)
-// — same proxy already used elsewhere in this file for contrast decisions.
+// don't need a per-hue table there).
 const LIGHT_BG_INK: Record<HueBucket, string> = {
   neutral: "rgba(26, 26, 26, 0.92)",
   red: "rgba(58, 37, 48, 0.92)", // dark purple/coffee, per "浅色背景+纯白或深紫/褐色"
@@ -129,16 +127,41 @@ const LIGHT_BG_INK: Record<HueBucket, string> = {
 };
 
 /**
- * Picks a legible caption ink color (+ matching shadow) for a solid-fill
- * text treatment (paragraph/vertical), based on the trend style's own
- * caption-mood color rather than always defaulting to plain white — a fixed
- * white fill washed out on lighter/warmer trend styles.
+ * Samples the average pixel color of a region of the ALREADY-GRADED photo
+ * (post color-grade, pre text overlay) so caption ink can be matched to what
+ * is actually behind the text — not just the trend style's abstract mood
+ * color. A trend style's overall mood can be "bright" while the specific
+ * strip the text lands on is dark (e.g. dark clothing/floor in the frame),
+ * which a whole-photo or gradient-only proxy misses entirely.
  */
-function pickCaptionInk(gradientColors: [string, string]): { fill: string; shadow: string } {
-  const a = hexToRgb(gradientColors[0]) ?? { r: 40, g: 40, b: 40 };
-  const b = hexToRgb(gradientColors[1]) ?? { r: 20, g: 20, b: 20 };
-  const avg = { r: (a.r + b.r) / 2, g: (a.g + b.g) / 2, b: (a.b + b.b) / 2 };
-  const { h, s, l } = rgbToHsl(avg.r, avg.g, avg.b);
+async function sampleRegionColor(
+  buffer: Buffer,
+  region: { left: number; top: number; width: number; height: number },
+): Promise<{ r: number; g: number; b: number }> {
+  const meta = await sharp(buffer).metadata();
+  const imgW = meta.width ?? region.left + region.width;
+  const imgH = meta.height ?? region.top + region.height;
+  const left = Math.max(0, Math.min(Math.round(region.left), imgW - 1));
+  const top = Math.max(0, Math.min(Math.round(region.top), imgH - 1));
+  const width = Math.max(1, Math.min(Math.round(region.width), imgW - left));
+  const height = Math.max(1, Math.min(Math.round(region.height), imgH - top));
+  const { data } = await sharp(buffer)
+    .extract({ left, top, width, height })
+    .resize(1, 1)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return { r: data[0], g: data[1], b: data[2] };
+}
+
+/**
+ * Picks a legible caption ink color (+ matching shadow) for a solid-fill
+ * text treatment (paragraph/vertical), based on the actual photo pixels
+ * behind where the text will sit (see sampleRegionColor) rather than always
+ * defaulting to plain white — a fixed white (or a whole-photo-mood-based)
+ * fill can land dark-on-dark against a specific busy region of the photo.
+ */
+function pickCaptionInk(bg: { r: number; g: number; b: number }): { fill: string; shadow: string } {
+  const { h, s, l } = rgbToHsl(bg.r, bg.g, bg.b);
 
   if (l < 0.4) {
     // Dark background: white/light-warm text is near-universally the right
@@ -224,26 +247,35 @@ const DEFAULT_TEXT_TREATMENT = { kind: "headline", chip: false, align: "center" 
  * driven by however many lines the caption actually has, not the fixed
  * getCaptionAreaHeight band.
  *
- * Color pairs with the trend style's own caption gradient via
- * pickCaptionInk() — a hue-aware ink pick (not just plain white) — rather
- * than always being plain white, which washed out on lighter/warmer trend
- * styles.
+ * Ink color is resolved by the caller (via sampleRegionColor + pickCaptionInk
+ * against the actual photo pixels behind this text) rather than always being
+ * plain white, which washed out on lighter/warmer photo regions.
  */
-async function renderParagraphOverlay(
-  paragraph: string,
-  width: number,
-  align: "left" | "center",
-  gradientColors: [string, string],
-): Promise<{ buffer: Buffer; areaHeight: number }> {
-  const family = getCaptionFontFamily("script");
-  const lines = paragraph
+function paragraphLines(paragraph: string): string[] {
+  return paragraph
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
     .slice(0, 4);
+}
+
+function paragraphAreaHeight(lineCount: number, width: number): number {
   const fontSize = Math.round(width * 0.052);
   const lineHeight = fontSize * 1.55;
-  const areaHeight = Math.round(lineHeight * lines.length + fontSize * 1.1);
+  return Math.round(lineHeight * lineCount + fontSize * 1.1);
+}
+
+async function renderParagraphOverlay(
+  paragraph: string,
+  width: number,
+  align: "left" | "center",
+  ink: { fill: string; shadow: string },
+): Promise<{ buffer: Buffer; areaHeight: number }> {
+  const family = getCaptionFontFamily("script");
+  const lines = paragraphLines(paragraph);
+  const fontSize = Math.round(width * 0.052);
+  const lineHeight = fontSize * 1.55;
+  const areaHeight = paragraphAreaHeight(lines.length, width);
 
   const canvas = createCanvas(width, areaHeight);
   const ctx = canvas.getContext("2d");
@@ -255,7 +287,7 @@ async function renderParagraphOverlay(
   const anchorX = align === "left" ? marginX : width / 2;
   const startY = areaHeight / 2 - (lineHeight * (lines.length - 1)) / 2;
 
-  const { fill: fillColor, shadow: shadowColor } = pickCaptionInk(gradientColors);
+  const { fill: fillColor, shadow: shadowColor } = ink;
 
   for (let i = 0; i < lines.length; i++) {
     const y = startY + i * lineHeight;
@@ -276,17 +308,22 @@ async function renderParagraphOverlay(
  * paragraph. Reuses hookText (already a short single line) rather than
  * needing a dedicated AI-authored field.
  */
+function verticalAreaWidth(height: number): number {
+  const fontSize = Math.round(height * 0.032);
+  return Math.round(fontSize * 2.4);
+}
+
 async function renderVerticalOverlay(
   text: string,
   height: number,
   side: "left" | "right",
-  gradientColors: [string, string],
+  ink: { fill: string; shadow: string },
 ): Promise<{ buffer: Buffer; areaWidth: number }> {
   const family = getCaptionFontFamily("script");
   const chars = Array.from(text.trim()).slice(0, 12);
   const fontSize = Math.round(height * 0.032);
   const charSpacing = fontSize * 1.35;
-  const areaWidth = Math.round(fontSize * 2.4);
+  const areaWidth = verticalAreaWidth(height);
   const totalTextHeight = charSpacing * chars.length;
 
   const canvas = createCanvas(areaWidth, height);
@@ -295,7 +332,7 @@ async function renderVerticalOverlay(
   ctx.textAlign = "center";
   ctx.font = `${fontSize}px "${family}"`;
 
-  const { fill: fillColor, shadow: shadowColor } = pickCaptionInk(gradientColors);
+  const { fill: fillColor, shadow: shadowColor } = ink;
 
   const anchorX = areaWidth / 2;
   const startY = height / 2 - totalTextHeight / 2 + charSpacing / 2;
@@ -868,12 +905,7 @@ export async function applyBrandStyle(
       // Quiet diary-style caption — no chip, no gradient, just a small
       // brush-script block sitting in open space. Its own line count drives
       // the area height instead of the fixed headline band.
-      const { buffer: overlayBuffer, areaHeight } = await renderParagraphOverlay(
-        paragraphText,
-        width,
-        baseTreatment.align,
-        cfg.captionGradient,
-      );
+      const areaHeight = paragraphAreaHeight(paragraphLines(paragraphText).length, width);
       let top: number;
       if (options.textPosition === "middle") {
         top = Math.round((height - areaHeight) / 2);
@@ -882,6 +914,24 @@ export async function applyBrandStyle(
       } else {
         top = Math.round(height * 0.13);
       }
+      // Sample the actual photo pixels this caption will sit on top of —
+      // the trend style's overall mood can be "bright" while this specific
+      // strip is dark (e.g. dark clothing/floor in frame), which a
+      // whole-photo proxy would miss and render illegible dark-on-dark text.
+      // Sample only the horizontal span the glyphs actually occupy (not the
+      // full photo width) — for left-aligned text a full-width sample gets
+      // diluted by whatever's on the untouched far side of the frame and can
+      // pick a color that only suits the empty half, not the text itself.
+      const sampleLeft = baseTreatment.align === "left" ? Math.round(width * 0.06) : 0;
+      const sampleWidth = baseTreatment.align === "left" ? Math.round(width * 0.55) : width;
+      const sampled = await sampleRegionColor(buffer, {
+        left: sampleLeft,
+        top,
+        width: sampleWidth,
+        height: areaHeight,
+      });
+      const ink = pickCaptionInk(sampled);
+      const { buffer: overlayBuffer } = await renderParagraphOverlay(paragraphText, width, baseTreatment.align, ink);
       buffer = await sharp(buffer)
         .composite([{ input: overlayBuffer, left: 0, top }])
         .jpeg({ quality: 92 })
@@ -890,14 +940,17 @@ export async function applyBrandStyle(
       // A single short phrase set vertically along one edge — reuses
       // hookText directly since it's already a short single line, no
       // dedicated AI field needed for this treatment.
-      const { buffer: overlayBuffer, areaWidth } = await renderVerticalOverlay(
+      const areaWidth = verticalAreaWidth(height);
+      const sideMargin = Math.round(width * 0.06);
+      const left = baseTreatment.side === "left" ? sideMargin : width - areaWidth - sideMargin;
+      const sampled = await sampleRegionColor(buffer, { left, top: 0, width: areaWidth, height });
+      const ink = pickCaptionInk(sampled);
+      const { buffer: overlayBuffer } = await renderVerticalOverlay(
         options.hookText!.trim(),
         height,
         baseTreatment.side,
-        cfg.captionGradient,
+        ink,
       );
-      const sideMargin = Math.round(width * 0.06);
-      const left = baseTreatment.side === "left" ? sideMargin : width - areaWidth - sideMargin;
       buffer = await sharp(buffer)
         .composite([{ input: overlayBuffer, left, top: 0 }])
         .jpeg({ quality: 92 })
