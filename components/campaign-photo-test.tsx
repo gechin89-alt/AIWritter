@@ -7,6 +7,8 @@ import { IconActionButton } from "./icon-action-button";
 import { Modal } from "./modal";
 import { MediaUploadField } from "./media-upload-field";
 
+type VariantMeta = { coverStyleName?: string; coverStyleReason?: string };
+
 export function CampaignPhotoTest({
   campaignSlug,
   label,
@@ -28,13 +30,19 @@ export function CampaignPhotoTest({
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [running, setRunning] = useState(false);
-  const [resultPath, setResultPath] = useState<string | null>(null);
+  // Shows all 3 AI-styled variants (with the cover-style name/reason behind
+  // each pick), not just the first one — this is meant to let admin quickly
+  // sanity-check the real styling pipeline against a real photo, not just
+  // preview a single result.
+  const [variants, setVariants] = useState<string[]>([]);
+  const [variantMeta, setVariantMeta] = useState<VariantMeta[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   function handleClose() {
     setOpen(false);
     setFile(null);
-    setResultPath(null);
+    setVariants([]);
+    setVariantMeta([]);
     setError(null);
   }
 
@@ -42,7 +50,8 @@ export function CampaignPhotoTest({
     if (!file) return;
     setRunning(true);
     setError(null);
-    setResultPath(null);
+    setVariants([]);
+    setVariantMeta([]);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -53,11 +62,16 @@ export function CampaignPhotoTest({
       const filterRes = await fetch("/api/photo-filter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaPath: uploadData.path, campaignSlug, locale }),
+        body: JSON.stringify({ mediaPath: uploadData.path, campaignSlug, locale, textMode: "auto" }),
       });
       if (!filterRes.ok) throw new Error("filter failed");
       const filterData = await filterRes.json();
-      setResultPath(filterData.filtered ? filterData.path : uploadData.path);
+      if (filterData.filtered && filterData.variants?.length) {
+        setVariants(filterData.variants);
+        setVariantMeta(filterData.variantMeta ?? []);
+      } else {
+        setVariants([uploadData.path]);
+      }
     } catch {
       setError(labels.error);
     } finally {
@@ -88,16 +102,28 @@ export function CampaignPhotoTest({
           >
             {running ? labels.running : labels.run}
           </button>
-          {resultPath && (
+          {variants.length > 0 && (
             <div>
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{labels.result}</p>
-              <Image
-                src={resultPath}
-                alt=""
-                width={280}
-                height={280}
-                className="mt-2 max-h-72 w-auto rounded-lg border border-zinc-200 object-contain dark:border-zinc-800"
-              />
+              <div className="mt-2 flex flex-wrap gap-4">
+                {variants.map((v, i) => (
+                  <div key={v} className="flex flex-col gap-1">
+                    <Image
+                      src={v}
+                      alt=""
+                      width={220}
+                      height={220}
+                      className="max-h-72 w-auto rounded-lg border border-zinc-200 object-contain dark:border-zinc-800"
+                    />
+                    {variantMeta[i]?.coverStyleName && (
+                      <p className="max-w-[220px] text-xs text-zinc-600 dark:text-zinc-400">
+                        <span className="font-medium">{variantMeta[i].coverStyleName}</span>
+                        {variantMeta[i].coverStyleReason && ` — ${variantMeta[i].coverStyleReason}`}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

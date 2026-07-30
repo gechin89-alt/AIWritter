@@ -225,7 +225,7 @@
     "managePrizes": "Manage prizes",
     "editCampaign": "Edit campaign",
     "testPhoto": "Test photo beautify",
-    "testPhotoHint": "Only tests the photo beautify effect — no caption is generated, no caption-related AI cost.",
+    "testPhotoHint": "Upload a photo to see the real AI photo styling effect (uses a small amount of AI credit) — no post caption is generated.",
     "testPhotoRun": "Run test",
     "testPhotoRunning": "Processing...",
     "testPhotoResult": "Beautified result",

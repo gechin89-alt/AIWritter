@@ -210,7 +210,7 @@
     "managePrizes": "管理奖品",
     "editCampaign": "编辑活动",
     "testPhoto": "测试照片美化",
-    "testPhotoHint": "只测试照片美化效果，不会生成帖子文案，不产生文案相关的 AI 费用。",
+    "testPhotoHint": "上传照片直接查看实际的 AI 照片美化效果（会产生少量 AI 费用），不会生成帖子文案。",
     "testPhotoRun": "运行测试",
     "testPhotoRunning": "处理中...",
     "testPhotoResult": "美化结果",

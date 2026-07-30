@@ -18,9 +18,9 @@ import { AdminResetPasswordButton } from "@/components/admin-reset-password-butt
 import { AdminEditLimitControl } from "@/components/admin-edit-limit-control";
 import { effectivePostLimit } from "@/lib/quota";
 
-// Temporary admin photo-test button — hidden for now per request, code kept
-// intact so it can be switched back on later.
-const SHOW_ADMIN_PHOTO_TEST = false;
+// Quick per-campaign photo-effect test button, so photo styling can be
+// checked without going through the full contact/Q&A flow each time.
+const SHOW_ADMIN_PHOTO_TEST = true;
 
 export default async function AdminPage({
   params,
