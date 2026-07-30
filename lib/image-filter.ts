@@ -113,17 +113,20 @@ function splitIntoTwoLines(text: string): [string, string] {
 
 export type TextTreatment =
   | { kind: "headline"; chip: boolean; align: "left" | "center" }
-  | { kind: "paragraph"; align: "left" | "center" };
+  | { kind: "paragraph"; align: "left" | "center" }
+  | { kind: "vertical"; side: "left" | "right" };
 
 /**
  * Which of the 10 XHS_Viral_Cover_Catalogue.md cover styles get a solid
  * poster-style color block behind the text ("大字报") vs. text floating
  * directly on the photo, vs. a quiet multi-line diary-style paragraph in a
- * brush-script font, and left vs. center alignment — without this, the 3
- * shown variants only differed by color grade, which read as "basically
- * the same" (block-style and diary-caption covers are among the catalogue's
- * own 10 archetypes, not just a color choice). See COVER_STYLE_NAMES in
- * lib/anthropic.ts for what each id is.
+ * brush-script font, vs. a single short phrase set vertically along one
+ * edge (the quiet "一个人的下午茶"-style caption), and left vs. center
+ * alignment — without this, the 3 shown variants only differed by color
+ * grade, which read as "basically the same" (block-style, diary-caption and
+ * vertical-caption covers are among the catalogue's own archetypes, not just
+ * a color choice). See COVER_STYLE_NAMES in lib/anthropic.ts for what each
+ * id is.
  */
 export const COVER_STYLE_TEXT_TREATMENT: Record<number, TextTreatment> = {
   1: { kind: "headline", chip: false, align: "left" }, // Real-Person Direct Shot
@@ -135,7 +138,7 @@ export const COVER_STYLE_TEXT_TREATMENT: Record<number, TextTreatment> = {
   7: { kind: "headline", chip: false, align: "center" }, // Two-Person Interactive Frame
   8: { kind: "headline", chip: true, align: "center" }, // Cross-Category Mashup
   9: { kind: "paragraph", align: "left" }, // Real-Life / Lived-In Scene
-  10: { kind: "headline", chip: true, align: "left" }, // Minimalist Infographic
+  10: { kind: "vertical", side: "right" }, // Minimalist Infographic
 };
 
 const DEFAULT_TEXT_TREATMENT = { kind: "headline", chip: false, align: "center" } as const;
@@ -147,11 +150,17 @@ const DEFAULT_TEXT_TREATMENT = { kind: "headline", chip: false, align: "center" 
  * than dominating the frame, unlike the bold headline treatment. Height is
  * driven by however many lines the caption actually has, not the fixed
  * getCaptionAreaHeight band.
+ *
+ * Color pairs with the trend style's own caption gradient the same way the
+ * headline treatment's outline does (see avgLuminance below) rather than
+ * always being plain white — a fixed white fill washed out on lighter/warmer
+ * trend styles.
  */
 async function renderParagraphOverlay(
   paragraph: string,
   width: number,
   align: "left" | "center",
+  gradientColors: [string, string],
 ): Promise<{ buffer: Buffer; areaHeight: number }> {
   const family = getCaptionFontFamily("script");
   const lines = paragraph
@@ -173,16 +182,67 @@ async function renderParagraphOverlay(
   const anchorX = align === "left" ? marginX : width / 2;
   const startY = areaHeight / 2 - (lineHeight * (lines.length - 1)) / 2;
 
+  const avgLuminance = (relativeLuminance(gradientColors[0]) + relativeLuminance(gradientColors[1])) / 2;
+  const isLight = avgLuminance > 0.55;
+  const fillColor = isLight ? "rgba(40, 32, 26, 0.92)" : "rgba(255, 255, 255, 0.92)";
+  const shadowColor = isLight ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.55)";
+
   for (let i = 0; i < lines.length; i++) {
     const y = startY + i * lineHeight;
-    ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+    ctx.shadowColor = shadowColor;
     ctx.shadowBlur = 6;
     ctx.shadowOffsetY = 1;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+    ctx.fillStyle = fillColor;
     ctx.fillText(lines[i], anchorX, y);
   }
 
   return { buffer: canvas.toBuffer("image/png"), areaHeight };
+}
+
+/**
+ * A single short phrase set vertically (one character per line, top to
+ * bottom) along one edge of the photo — the quiet "一个人的下午茶"-style
+ * caption, distinct from both the bold headline and the multi-line diary
+ * paragraph. Reuses hookText (already a short single line) rather than
+ * needing a dedicated AI-authored field.
+ */
+async function renderVerticalOverlay(
+  text: string,
+  height: number,
+  side: "left" | "right",
+  gradientColors: [string, string],
+): Promise<{ buffer: Buffer; areaWidth: number }> {
+  const family = getCaptionFontFamily("script");
+  const chars = Array.from(text.trim()).slice(0, 12);
+  const fontSize = Math.round(height * 0.032);
+  const charSpacing = fontSize * 1.35;
+  const areaWidth = Math.round(fontSize * 2.4);
+  const totalTextHeight = charSpacing * chars.length;
+
+  const canvas = createCanvas(areaWidth, height);
+  const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  ctx.font = `${fontSize}px "${family}"`;
+
+  const avgLuminance = (relativeLuminance(gradientColors[0]) + relativeLuminance(gradientColors[1])) / 2;
+  const isLight = avgLuminance > 0.55;
+  const fillColor = isLight ? "rgba(40, 32, 26, 0.88)" : "rgba(255, 255, 255, 0.88)";
+  const shadowColor = isLight ? "rgba(255, 255, 255, 0.55)" : "rgba(0, 0, 0, 0.5)";
+
+  const anchorX = areaWidth / 2;
+  const startY = height / 2 - totalTextHeight / 2 + charSpacing / 2;
+
+  for (let i = 0; i < chars.length; i++) {
+    const y = startY + i * charSpacing;
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = fillColor;
+    ctx.fillText(chars[i], anchorX, y);
+  }
+
+  return { buffer: canvas.toBuffer("image/png"), areaWidth };
 }
 
 /**
@@ -745,6 +805,7 @@ export async function applyBrandStyle(
         paragraphText,
         width,
         baseTreatment.align,
+        cfg.captionGradient,
       );
       let top: number;
       if (options.textPosition === "middle") {
@@ -756,6 +817,22 @@ export async function applyBrandStyle(
       }
       buffer = await sharp(buffer)
         .composite([{ input: overlayBuffer, left: 0, top }])
+        .jpeg({ quality: 92 })
+        .toBuffer();
+    } else if (baseTreatment.kind === "vertical") {
+      // A single short phrase set vertically along one edge — reuses
+      // hookText directly since it's already a short single line, no
+      // dedicated AI field needed for this treatment.
+      const { buffer: overlayBuffer, areaWidth } = await renderVerticalOverlay(
+        options.hookText!.trim(),
+        height,
+        baseTreatment.side,
+        cfg.captionGradient,
+      );
+      const sideMargin = Math.round(width * 0.06);
+      const left = baseTreatment.side === "left" ? sideMargin : width - areaWidth - sideMargin;
+      buffer = await sharp(buffer)
+        .composite([{ input: overlayBuffer, left, top: 0 }])
         .jpeg({ quality: 92 })
         .toBuffer();
     } else {
