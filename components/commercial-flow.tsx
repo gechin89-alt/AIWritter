@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useTranslations, useLocale } from "next-intl";
 import { ChoiceGroupWithOther } from "./choice-group-with-other";
 import { MediaUploadField } from "./media-upload-field";
+import { PhotoCropper } from "./photo-cropper";
 import { Modal } from "./modal";
 import { toDownloadUrl } from "@/lib/download-url";
 import { compressImageForUpload } from "@/lib/compress-image";
@@ -98,6 +99,11 @@ export function CommercialFlow({
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPath, setMediaPath] = useState<string | null>(null);
+  // A freshly-picked photo waits here for the customer to frame it (zoom
+  // in/out, drag to pan into XHS's mandatory 3:4 ratio) before it becomes
+  // mediaFile — the crop step, not the raw upload, is what actually gets
+  // compressed/uploaded/styled.
+  const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [styledPhotoPath, setStyledPhotoPath] = useState<string | null>(null);
   const [photoVariants, setPhotoVariants] = useState<string[]>([]);
@@ -207,7 +213,16 @@ export function CommercialFlow({
   // declarations aren't hoisted the way function declarations are.
   const photoSelectionPending = photoVariants.length > 0 && !styledPhotoPath;
 
-  const mediaField = (
+  const mediaField = pendingCropFile ? (
+    <PhotoCropper
+      file={pendingCropFile}
+      onConfirm={handleCropConfirm}
+      onCancel={handleCropCancel}
+      confirmLabel={tc("cropConfirm")}
+      cancelLabel={tc("cropCancel")}
+      instructionLabel={tc("cropInstruction")}
+    />
+  ) : (
     <div>
       {!styledPhotoPath && !stylingPhoto && photoVariants.length === 0 && (
         <div className="mb-3">
@@ -530,7 +545,7 @@ export function CommercialFlow({
     return uploadFile(mediaFile);
   }
 
-  async function handleMediaSelected(file: File | null) {
+  function handleMediaSelected(file: File | null) {
     setMediaPath(null);
     setStyledPhotoPath(null);
     setPhotoVariants([]);
@@ -543,17 +558,26 @@ export function CommercialFlow({
       setCustomText("");
       return;
     }
-    // Fresh phone-camera photos (especially iPhone) can be several MB and
-    // exceed Netlify's serverless function payload limit before our own
-    // code even runs, showing up as an unexplained 500. Shrinking client-side
-    // first sidesteps that regardless of the exact limit.
-    const compressed = await compressImageForUpload(file);
+    // Frame it into the mandatory 3:4 ratio before anything else — the crop
+    // step's onConfirm (below) is what actually compresses/sets mediaFile.
+    setPendingCropFile(file);
+  }
+
+  async function handleCropConfirm(croppedFile: File) {
+    setPendingCropFile(null);
+    // Cropped output is already a controlled 1080x1440 JPEG, but fresh
+    // phone-camera originals feeding into it can still push the encoded
+    // size up — compress the same way a direct upload would, so this can
+    // never regress the earlier Netlify-payload-limit fix.
+    const compressed = await compressImageForUpload(croppedFile);
     setMediaFile(compressed);
-    // Defaults to "auto", so a fresh upload just works immediately unless
-    // the customer had already picked "custom" and typed something.
     if (textModeChoice !== "custom" || customText.trim()) {
       runPhotoStyling(compressed, textModeChoice, customText);
     }
+  }
+
+  function handleCropCancel() {
+    setPendingCropFile(null);
   }
 
   async function runPhotoStyling(file: File, mode: TextMode, text?: string) {
