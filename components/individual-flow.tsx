@@ -10,6 +10,7 @@ import { BrandProfileEditor } from "./brand-profile-editor";
 import { PostHistoryButton } from "./post-history-button";
 import { Modal } from "./modal";
 import { toDownloadUrl } from "@/lib/download-url";
+import { Spinner } from "./spinner";
 import { compressImageForUpload } from "@/lib/compress-image";
 
 type ChatTurn = { role: "user" | "assistant"; content: string };
@@ -386,10 +387,11 @@ export function IndividualFlow({
           disabled={loading || aiUnavailable || !clarifyAnswer.trim()}
           className={
             aiUnavailable
-              ? "mt-3 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-              : "mt-3 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+              ? "mt-3 inline-flex items-center gap-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+              : "mt-3 inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           }
         >
+          {loading && <Spinner />}
           {loading ? t("sendingReply") : t("sendReply")}
         </button>
       </div>
@@ -518,7 +520,10 @@ export function IndividualFlow({
           />
 
           {stylingPhoto && (
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("stylingPhoto")}</p>
+            <p className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <Spinner />
+              {t("stylingPhoto")}
+            </p>
           )}
 
           {photoVariants.length > 1 && !styledPhotoPath && !stylingPhoto && (
@@ -641,10 +646,11 @@ export function IndividualFlow({
           disabled={loading || uploading || aiUnavailable}
           className={
             aiUnavailable
-              ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-              : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+              ? "mt-2 inline-flex items-center gap-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+              : "mt-2 inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           }
         >
+          {(loading || uploading) && <Spinner />}
           {loading || uploading ? t("generating") : t("generate")}
         </button>
       </div>

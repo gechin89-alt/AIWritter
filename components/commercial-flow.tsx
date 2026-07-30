@@ -6,6 +6,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { ChoiceGroupWithOther } from "./choice-group-with-other";
 import { MediaUploadField } from "./media-upload-field";
 import { PhotoCropper } from "./photo-cropper";
+import { Spinner } from "./spinner";
 import { Modal } from "./modal";
 import { toDownloadUrl } from "@/lib/download-url";
 import { compressImageForUpload } from "@/lib/compress-image";
@@ -303,7 +304,8 @@ export function CommercialFlow({
       />
 
       {stylingPhoto && (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <Spinner />
           {tc("stylingPhoto")}
         </p>
       )}
@@ -988,8 +990,9 @@ export function CommercialFlow({
           <button
             onClick={handleContactContinue}
             disabled={checkingContact || !name.trim() || !isValidPhone(phone)}
-            className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+            className="mt-2 inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           >
+            {checkingContact && <Spinner />}
             {checkingContact ? tc("loadingQuestions") : tc("continueLabel")}
           </button>
         </div>
@@ -1036,7 +1039,10 @@ export function CommercialFlow({
           // customer's own message is already showing as a sent bubble
           // above, so there's nothing left to do here until the AI answers;
           // it reappears automatically if that answer is another question.
-          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">{tc("sendingReply")}</p>
+          <p className="mt-3 flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+            <Spinner />
+            {tc("sendingReply")}
+          </p>
         ) : (
           <>
             <textarea
@@ -1100,8 +1106,9 @@ export function CommercialFlow({
           <button
             onClick={handleRegenerate}
             disabled={loading || aiUnavailable || editCount >= editLimit}
-            className="rounded-full border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-brand/10 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-full border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-brand/10 disabled:opacity-50"
           >
+            {loading && <Spinner />}
             {loading ? tc("regenerating") : tc("regenerate")}
           </button>
           <button
@@ -1241,10 +1248,11 @@ export function CommercialFlow({
             disabled={loadingQuestions || !category || aiUnavailable}
             className={
               aiUnavailable
-                ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-                : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+                ? "mt-2 inline-flex items-center gap-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+                : "mt-2 inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
             }
           >
+            {loadingQuestions && <Spinner />}
             {loadingQuestions ? tc("loadingQuestions") : tc("continueLabel")}
           </button>
         </div>
@@ -1387,10 +1395,11 @@ export function CommercialFlow({
           disabled={loading || aiUnavailable}
           className={
             aiUnavailable
-              ? "mt-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
-              : "mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
+              ? "mt-2 inline-flex items-center gap-2 rounded-full bg-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400"
+              : "mt-2 inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           }
         >
+          {loading && <Spinner />}
           {loading ? t("generating") : t("generate")}
         </button>
       </div>
