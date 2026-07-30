@@ -228,7 +228,7 @@ export const COVER_STYLE_TEXT_TREATMENT: Record<number, TextTreatment> = {
   1: { kind: "headline", chip: false, align: "left" }, // Real-Person Direct Shot
   2: { kind: "headline", chip: true, align: "center" }, // Before/After Transformation
   3: { kind: "headline", chip: true, align: "left" }, // Bold Headline / Color Block
-  4: { kind: "headline", chip: false, align: "left" }, // Pain Point + Contrast Portrait
+  4: { kind: "vertical", side: "left" }, // Pain Point + Contrast Portrait
   5: { kind: "paragraph", align: "left" }, // Confessional / Story Hook
   6: { kind: "headline", chip: true, align: "center" }, // Reveal-Half Suspense Hook
   7: { kind: "headline", chip: false, align: "center" }, // Two-Person Interactive Frame
