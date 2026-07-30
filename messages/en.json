@@ -107,6 +107,8 @@
     "downloadStyledPhoto": "Download styled photo",
     "choosePhotoVariant": "Pick your favorite style:",
     "chooseThisPhoto": "Choose this one",
+    "designDescriptionLabel": "Describe the look you want (optional)",
+    "designDescriptionPlaceholder": "e.g. vintage film, magazine cover, clean and fresh... leave blank to let AI decide",
     "chooseTextMode": "Add text on the photo?",
     "textModeAuto": "Auto-generate",
     "textModeCustom": "Write my own",

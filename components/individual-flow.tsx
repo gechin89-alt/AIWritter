@@ -44,6 +44,11 @@ export function IndividualFlow({
   // the choice is asked fresh for whatever gets uploaded next.
   const [textModeChoice, setTextModeChoice] = useState<TextMode>("auto");
   const [customText, setCustomText] = useState("");
+  // Optional steer on the desired look/feel ("复古胶片感", "杂志封面风", ...)
+  // — folded into the AI photo-styling prompt as extra context rather than a
+  // rigid separate mechanism. Testing here first (品牌自营) since these users
+  // are more invested in their own brand look than a lucky-draw participant.
+  const [designDescription, setDesignDescription] = useState("");
   const [stylingPhoto, setStylingPhoto] = useState(false);
   const [styledPhotoPath, setStyledPhotoPath] = useState<string | null>(null);
   const [photoVariants, setPhotoVariants] = useState<string[]>([]);
@@ -160,7 +165,13 @@ export function IndividualFlow({
       const res = await fetch("/api/photo-filter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaPath: resolvedPath, locale, textMode: mode, customText: text }),
+        body: JSON.stringify({
+          mediaPath: resolvedPath,
+          locale,
+          textMode: mode,
+          customText: text,
+          designDescription: designDescription.trim() || undefined,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -441,6 +452,20 @@ export function IndividualFlow({
         </p>
 
         <div className="mt-6 flex flex-col gap-5">
+          {!isVideo && !styledPhotoPath && !stylingPhoto && (
+            <div>
+              <label className="text-xs text-zinc-600 dark:text-zinc-400">{t("designDescriptionLabel")}</label>
+              <textarea
+                value={designDescription}
+                onChange={(e) => setDesignDescription(e.target.value.slice(0, 100))}
+                placeholder={t("designDescriptionPlaceholder")}
+                maxLength={100}
+                rows={2}
+                className="mt-2 w-full resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              />
+            </div>
+          )}
+
           {!isVideo && !styledPhotoPath && !stylingPhoto && (
             <div>
               <p className="text-xs text-zinc-600 dark:text-zinc-400">{t("chooseTextMode")}</p>

@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     textMode: rawTextMode,
     customText,
     forcePreview,
+    designDescription,
   }: {
     mediaPath?: string;
     campaignSlug?: string;
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest) {
      * since the whole point is previewing the effect before committing to
      * a look. Never set by the real customer-facing flow. */
     forcePreview?: boolean;
+    /** Optional free-text steer on the desired look, currently only sent by
+     * the 品牌自营 (individual) flow — see analyzePhotoForStyling. */
+    designDescription?: string;
   } = await req.json();
 
   if (!mediaPath) {
@@ -116,6 +120,7 @@ export async function POST(req: NextRequest) {
       textMode,
       customText,
       needsLogoPosition: Boolean(logoBuffer),
+      designDescription,
     });
 
     // "custom"/"none" modes return a single shared plan (the text itself

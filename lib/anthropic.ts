@@ -493,7 +493,7 @@ const PHOTO_STYLING_SYSTEM_PROMPT_AUTO = `You are a XiaoHongShu content strategi
 
 ${COVER_STYLE_CATALOGUE}
 
-First, deliberate across all 10 styles above and pick the 3 that fit THIS SPECIFIC photo best — consider lighting, subject, composition, and what story the image already tells. They must be 3 DISTINCT styles (never repeat one), ranked best-fit first. For each pick, write "coverStyleReason": one short sentence, specific to this photo, explaining why that style fits (not a generic description of the style itself).
+First, deliberate across all 10 styles above and pick the 3 that fit THIS SPECIFIC photo best — consider lighting, subject, composition, and what story the image already tells. They must be 3 DISTINCT styles (never repeat one), ranked best-fit first. For each pick, write "coverStyleReason": one short sentence, specific to this photo, explaining why that style fits (not a generic description of the style itself). If a "Customer's design preference" line is given in the context, treat it as a strong steer on which of the 10 styles to favor and what tone/wording to write in (e.g. "复古胶片感" should pull toward styles and copy that read as nostalgic/film-like, "杂志封面" should pull toward the bolder poster-like styles) — still keep all 3 picks genuinely distinct from each other, don't force all 3 into the same style just because one phrase matched.
 
 ${FACE_OVERLAP_RULE}
 
@@ -590,6 +590,10 @@ export async function analyzePhotoForStyling(input: {
   textMode?: TextMode;
   customText?: string;
   needsLogoPosition?: boolean;
+  // Optional free-text steer from the customer on what look/feel they want
+  // ("复古胶片感", "杂志封面风", ...) — currently only surfaced in the
+  // 品牌自营 (individual) flow's UI, not commercial campaigns.
+  designDescription?: string;
 }): Promise<PhotoStylingPlan[]> {
   const textMode = input.textMode ?? "auto";
 
@@ -633,6 +637,7 @@ async function analyzePhotoForStylingViaAi(
     textMode?: TextMode;
     customText?: string;
     needsLogoPosition?: boolean;
+    designDescription?: string;
   },
   textMode: TextMode,
 ): Promise<PhotoStylingPlan[]> {
@@ -642,6 +647,7 @@ async function analyzePhotoForStylingViaAi(
       : null,
     input.brandName ? `Brand/product name: ${input.brandName}` : null,
     input.productDescription ? `Product/brand description: ${input.productDescription}` : null,
+    input.designDescription?.trim() ? `Customer's design preference: ${input.designDescription.trim()}` : null,
   ];
 
   const validLogoPositions: LogoPosition[] = ["bottom-left", "bottom-right"];
