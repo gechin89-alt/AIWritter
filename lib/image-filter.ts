@@ -111,31 +111,79 @@ function splitIntoTwoLines(text: string): [string, string] {
   return [text.slice(0, cut).trim(), text.slice(cut).trim()];
 }
 
-export type TextTreatment = { chip: boolean; align: "left" | "center" };
+export type TextTreatment =
+  | { kind: "headline"; chip: boolean; align: "left" | "center" }
+  | { kind: "paragraph"; align: "left" | "center" };
 
 /**
  * Which of the 10 XHS_Viral_Cover_Catalogue.md cover styles get a solid
  * poster-style color block behind the text ("大字报") vs. text floating
- * directly on the photo, and left vs. center alignment — without this, the
- * 3 shown variants only differed by color grade, which read as "basically
- * the same" (block-style covers are one of the catalogue's own 10
- * archetypes, not just a color choice). See COVER_STYLE_NAMES in
+ * directly on the photo, vs. a quiet multi-line diary-style paragraph in a
+ * brush-script font, and left vs. center alignment — without this, the 3
+ * shown variants only differed by color grade, which read as "basically
+ * the same" (block-style and diary-caption covers are among the catalogue's
+ * own 10 archetypes, not just a color choice). See COVER_STYLE_NAMES in
  * lib/anthropic.ts for what each id is.
  */
 export const COVER_STYLE_TEXT_TREATMENT: Record<number, TextTreatment> = {
-  1: { chip: false, align: "left" }, // Real-Person Direct Shot
-  2: { chip: true, align: "center" }, // Before/After Transformation
-  3: { chip: true, align: "left" }, // Bold Headline / Color Block
-  4: { chip: false, align: "left" }, // Pain Point + Contrast Portrait
-  5: { chip: false, align: "left" }, // Confessional / Story Hook
-  6: { chip: true, align: "center" }, // Reveal-Half Suspense Hook
-  7: { chip: false, align: "center" }, // Two-Person Interactive Frame
-  8: { chip: true, align: "center" }, // Cross-Category Mashup
-  9: { chip: false, align: "left" }, // Real-Life / Lived-In Scene
-  10: { chip: true, align: "left" }, // Minimalist Infographic
+  1: { kind: "headline", chip: false, align: "left" }, // Real-Person Direct Shot
+  2: { kind: "headline", chip: true, align: "center" }, // Before/After Transformation
+  3: { kind: "headline", chip: true, align: "left" }, // Bold Headline / Color Block
+  4: { kind: "headline", chip: false, align: "left" }, // Pain Point + Contrast Portrait
+  5: { kind: "paragraph", align: "left" }, // Confessional / Story Hook
+  6: { kind: "headline", chip: true, align: "center" }, // Reveal-Half Suspense Hook
+  7: { kind: "headline", chip: false, align: "center" }, // Two-Person Interactive Frame
+  8: { kind: "headline", chip: true, align: "center" }, // Cross-Category Mashup
+  9: { kind: "paragraph", align: "left" }, // Real-Life / Lived-In Scene
+  10: { kind: "headline", chip: true, align: "left" }, // Minimalist Infographic
 };
 
-const DEFAULT_TEXT_TREATMENT: TextTreatment = { chip: false, align: "center" };
+const DEFAULT_TEXT_TREATMENT = { kind: "headline", chip: false, align: "center" } as const;
+
+/**
+ * A short 2-4 line reflective/diary-style caption in a delicate brush-
+ * script font (MaShanZheng, already bundled as the "script" caption font) —
+ * small, quiet, and left-aligned by default, sitting in open space rather
+ * than dominating the frame, unlike the bold headline treatment. Height is
+ * driven by however many lines the caption actually has, not the fixed
+ * getCaptionAreaHeight band.
+ */
+async function renderParagraphOverlay(
+  paragraph: string,
+  width: number,
+  align: "left" | "center",
+): Promise<{ buffer: Buffer; areaHeight: number }> {
+  const family = getCaptionFontFamily("script");
+  const lines = paragraph
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  const fontSize = Math.round(width * 0.052);
+  const lineHeight = fontSize * 1.55;
+  const areaHeight = Math.round(lineHeight * lines.length + fontSize * 1.1);
+
+  const canvas = createCanvas(width, areaHeight);
+  const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "middle";
+  ctx.textAlign = align === "left" ? "left" : "center";
+  ctx.font = `${fontSize}px "${family}"`;
+
+  const marginX = width * 0.09;
+  const anchorX = align === "left" ? marginX : width / 2;
+  const startY = areaHeight / 2 - (lineHeight * (lines.length - 1)) / 2;
+
+  for (let i = 0; i < lines.length; i++) {
+    const y = startY + i * lineHeight;
+    ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+    ctx.fillText(lines[i], anchorX, y);
+  }
+
+  return { buffer: canvas.toBuffer("image/png"), areaHeight };
+}
 
 /**
  * Two looks depending on treatment.chip:
@@ -151,6 +199,8 @@ const DEFAULT_TEXT_TREATMENT: TextTreatment = { chip: false, align: "center" };
  * bold short hook with a softer second line rather than one flat line.
  * Returns a transparent PNG overlay sized to getCaptionAreaHeight(height).
  */
+type HeadlineTreatment = Extract<TextTreatment, { kind: "headline" }>;
+
 async function renderCaptionOverlay(
   text: string,
   width: number,
@@ -158,7 +208,7 @@ async function renderCaptionOverlay(
   gradientColors: [string, string],
   captionFont: CaptionFont,
   subtitle?: string,
-  treatment: TextTreatment = DEFAULT_TEXT_TREATMENT,
+  treatment: HeadlineTreatment = DEFAULT_TEXT_TREATMENT,
 ): Promise<Buffer> {
   const hasSubtitle = Boolean(subtitle?.trim());
   const areaHeight = getCaptionAreaHeight(height, hasSubtitle);
@@ -620,6 +670,10 @@ export async function applyBrandStyle(
     // alignment. Undefined (custom/none text modes) falls back to the
     // previous floating-centered look.
     coverStyleId?: number;
+    // Only rendered when coverStyleId resolves to a "paragraph" treatment
+    // (see COVER_STYLE_TEXT_TREATMENT) — falls back to hookText/subtitle
+    // otherwise, even if this happens to be set.
+    paragraph?: string | null;
   },
 ): Promise<string> {
   const cfg = TREND_STYLES[options.trendStyle];
@@ -677,50 +731,78 @@ export async function applyBrandStyle(
   }
 
   if (hasHookText) {
-    // Uses the trend style's own caption gradient (not the brand color) so
-    // the 3 variants show genuinely different text colors, not just
-    // different fonts — brand identity is already carried by the soft-light
-    // wash above, applied to every variant regardless of style.
-    const hasSubtitle = Boolean(options.subtitle?.trim());
     const baseTreatment =
       (options.coverStyleId !== undefined ? COVER_STYLE_TEXT_TREATMENT[options.coverStyleId] : undefined) ??
       DEFAULT_TEXT_TREATMENT;
-    // "middle" sits directly over the busiest part of the photo (that's WHY
-    // it was picked over top/bottom — a face/subject blocked those bands) —
-    // floating gradient text there reads as covering the photo rather than a
-    // deliberate design choice, so force a solid chip block regardless of
-    // the cover style's own default.
-    const treatment: TextTreatment =
-      options.textPosition === "middle" ? { ...baseTreatment, chip: true } : baseTreatment;
-    const overlayBuffer = await renderCaptionOverlay(
-      options.hookText!.trim(),
-      width,
-      height,
-      cfg.captionGradient,
-      cfg.fontKey,
-      options.subtitle?.trim(),
-      treatment,
-    );
-    // XHS feed thumbnails get their top ~15% covered by the app's own UI
-    // chrome, so "top" placement leaves that strip blank and sits in the
-    // upper-center third instead of flush against the top edge. "middle"
-    // vertically centers instead, and "bottom" sits low but leaves clearance
-    // above the bottom-corner logo — Claude picks whichever avoids the
-    // photo's face(s) (or has the most open background if there's no face).
-    const areaHeight = getCaptionAreaHeight(height, hasSubtitle);
+    const paragraphText = options.paragraph?.trim();
     const bottomLogoClearance = Math.round(height * 0.22);
-    let top: number;
-    if (options.textPosition === "middle") {
-      top = Math.round((height - areaHeight) / 2);
-    } else if (options.textPosition === "bottom") {
-      top = Math.max(0, height - areaHeight - bottomLogoClearance);
+
+    if (baseTreatment.kind === "paragraph" && paragraphText) {
+      // Quiet diary-style caption — no chip, no gradient, just a small
+      // brush-script block sitting in open space. Its own line count drives
+      // the area height instead of the fixed headline band.
+      const { buffer: overlayBuffer, areaHeight } = await renderParagraphOverlay(
+        paragraphText,
+        width,
+        baseTreatment.align,
+      );
+      let top: number;
+      if (options.textPosition === "middle") {
+        top = Math.round((height - areaHeight) / 2);
+      } else if (options.textPosition === "bottom") {
+        top = Math.max(0, height - areaHeight - bottomLogoClearance);
+      } else {
+        top = Math.round(height * 0.13);
+      }
+      buffer = await sharp(buffer)
+        .composite([{ input: overlayBuffer, left: 0, top }])
+        .jpeg({ quality: 92 })
+        .toBuffer();
     } else {
-      top = Math.round(height * 0.13);
+      // Uses the trend style's own caption gradient (not the brand color) so
+      // the 3 variants show genuinely different text colors, not just
+      // different fonts — brand identity is already carried by the
+      // soft-light wash above, applied to every variant regardless of style.
+      const hasSubtitle = Boolean(options.subtitle?.trim());
+      const headlineTreatment: HeadlineTreatment =
+        baseTreatment.kind === "headline" ? baseTreatment : DEFAULT_TEXT_TREATMENT;
+      // "middle" sits directly over the busiest part of the photo (that's
+      // WHY it was picked over top/bottom — a face/subject blocked those
+      // bands) — floating gradient text there reads as covering the photo
+      // rather than a deliberate design choice, so force a solid chip block
+      // regardless of the cover style's own default.
+      const treatment: HeadlineTreatment =
+        options.textPosition === "middle" ? { ...headlineTreatment, chip: true } : headlineTreatment;
+      const overlayBuffer = await renderCaptionOverlay(
+        options.hookText!.trim(),
+        width,
+        height,
+        cfg.captionGradient,
+        cfg.fontKey,
+        options.subtitle?.trim(),
+        treatment,
+      );
+      // XHS feed thumbnails get their top ~15% covered by the app's own UI
+      // chrome, so "top" placement leaves that strip blank and sits in the
+      // upper-center third instead of flush against the top edge. "middle"
+      // vertically centers instead, and "bottom" sits low but leaves
+      // clearance above the bottom-corner logo — Claude picks whichever
+      // avoids the photo's face(s) (or has the most open background if
+      // there's no face).
+      const areaHeight = getCaptionAreaHeight(height, hasSubtitle);
+      let top: number;
+      if (options.textPosition === "middle") {
+        top = Math.round((height - areaHeight) / 2);
+      } else if (options.textPosition === "bottom") {
+        top = Math.max(0, height - areaHeight - bottomLogoClearance);
+      } else {
+        top = Math.round(height * 0.13);
+      }
+      buffer = await sharp(buffer)
+        .composite([{ input: overlayBuffer, left: 0, top }])
+        .jpeg({ quality: 92 })
+        .toBuffer();
     }
-    buffer = await sharp(buffer)
-      .composite([{ input: overlayBuffer, left: 0, top }])
-      .jpeg({ quality: 92 })
-      .toBuffer();
   }
 
   if (hasLogo) {

@@ -403,6 +403,12 @@ export type PhotoStylingPlan = {
   // which pair a bold big-character hook with a softer secondary line
   // instead of a single flat line of text. Only set in "auto" text mode.
   subtitle?: string;
+  // Only set for coverStyleId 5 (Confessional/Story Hook) and 9 (Real-Life/
+  // Lived-In Scene) — a short 2-4 line reflective/diary-style caption
+  // rendered in a delicate brush-script font instead of the bold headline,
+  // matching a quieter editorial look some brands want over a punchy ad
+  // hook. Replaces hookText/subtitle for rendering when present.
+  paragraph?: string;
   logoPosition: LogoPosition;
   textPosition: TextPosition;
   // Which of the 10 viral XHS cover archetypes this variant is styled as
@@ -496,12 +502,13 @@ Then, for each of your 3 picks, write a headline+subtitle pair tailored to that 
 1. coverStyleId: the catalogue style number (1-10) this option uses.
 2. coverStyleReason: as described above.
 3. hookText and subtitle: overlaid directly on the photo (like real viral social covers do), together forming a big-headline + small-supporting-line pair — ${AUTO_HEADLINE_SUBTITLE_RULES} Punchy and curiosity-driven, matching the brand's tone and the picked style's formula, not a generic slogan.
-4. ${LOGO_POSITION_RULE}
+4. If (and only if) coverStyleId is 5 (Confessional/Story Hook) or 9 (Real-Life/Lived-In Scene) for THIS option, ALSO write "paragraph": a short 2-4 line reflective, diary-style caption in the customer's own quiet, personal voice — gentle and unhurried, like a handwritten note to yourself, NOT a punchy ad hook or a call to action. Each line short (roughly 4-10 characters if Chinese, 3-7 words if English). Still fill in hookText/subtitle too as a fallback, but paragraph is what actually renders for these two styles. Omit "paragraph" entirely for any other coverStyleId.
+5. ${LOGO_POSITION_RULE}
 
-Write hookText, subtitle, and coverStyleReason in the language given by "Output language" in the context, if present.
+Write hookText, subtitle, paragraph, and coverStyleReason in the language given by "Output language" in the context, if present.
 
 Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
-{"faceOverlap":{"top":false,"middle":true,"bottom":false},"leastBadPosition":"top","options":[{"coverStyleId":1,"coverStyleReason":"...","hookText":"...","subtitle":"...","logoPosition":"bottom-right"},{"coverStyleId":9,"coverStyleReason":"...","hookText":"...","subtitle":"...","logoPosition":"bottom-left"},{"coverStyleId":5,"coverStyleReason":"...","hookText":"...","subtitle":"...","logoPosition":"bottom-right"}]}`;
+{"faceOverlap":{"top":false,"middle":true,"bottom":false},"leastBadPosition":"top","options":[{"coverStyleId":1,"coverStyleReason":"...","hookText":"...","subtitle":"...","logoPosition":"bottom-right"},{"coverStyleId":9,"coverStyleReason":"...","hookText":"...","subtitle":"...","paragraph":"...\\n...\\n...","logoPosition":"bottom-left"},{"coverStyleId":5,"coverStyleReason":"...","hookText":"...","subtitle":"...","paragraph":"...\\n...","logoPosition":"bottom-right"}]}`;
 
 const PHOTO_STYLING_SYSTEM_PROMPT_CUSTOM = `You are a social media copywriter looking at a customer's photo for a brand's post. The customer already wrote their own caption text (given as "Customer's text" in the context) that they want overlaid on the photo — refine it into a punchy, scroll-stopping short line for a raster overlay, keeping their core meaning and language, just tightening the wording. ${HOOK_TEXT_RULES} If it's already short and punchy, keep it close to as-is rather than rewriting for the sake of it.
 
@@ -717,9 +724,15 @@ async function analyzePhotoForStylingViaAi(
       const coverStyleId = Number.isInteger(rawId) && COVER_STYLE_NAMES[rawId] ? rawId : undefined;
       const subtitle =
         typeof o.subtitle === "string" && o.subtitle.trim() ? sanitizeHookText(o.subtitle) : undefined;
+      // Only meaningful for coverStyleId 5/9 — see AUTO_HEADLINE_SUBTITLE_RULES
+      // usage note above. sanitizeHookText only trims/strips emoji, so the
+      // paragraph's own line breaks survive intact.
+      const paragraph =
+        typeof o.paragraph === "string" && o.paragraph.trim() ? sanitizeHookText(o.paragraph) : undefined;
       return {
         hookText: sanitizeHookText(o.hookText as string),
         subtitle,
+        paragraph,
         logoPosition: o.logoPosition as LogoPosition,
         textPosition: textPositions[i],
         coverStyleId,
