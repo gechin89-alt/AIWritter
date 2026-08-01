@@ -111,13 +111,13 @@ function classifyHue(h: number, s: number): HueBucket {
 // universally white/light regardless of hue, so unlike the light case we
 // don't need a per-hue table there).
 const LIGHT_BG_INK: Record<HueBucket, string> = {
-  neutral: "rgba(26, 26, 26, 0.92)",
-  red: "rgba(58, 37, 48, 0.92)", // dark purple/coffee, per "浅色背景+纯白或深紫/褐色"
-  warm: "rgba(33, 26, 16, 0.92)", // "淡黄底黑字最不容易发生色散"
-  green: "rgba(255, 255, 255, 0.92)", // "绿色背景配纯白/橘黄/浅黄效果最好"
-  cyan: "rgba(18, 51, 48, 0.92)",
-  blue: "rgba(22, 35, 63, 0.92)", // "浅蓝背景配深蓝文字"
-  purple: "rgba(26, 26, 26, 0.92)",
+  neutral: "rgba(26, 26, 26, 1)",
+  red: "rgba(58, 37, 48, 1)", // dark purple/coffee, per "浅色背景+纯白或深紫/褐色"
+  warm: "rgba(33, 26, 16, 1)", // "淡黄底黑字最不容易发生色散"
+  green: "rgba(255, 255, 255, 1)", // "绿色背景配纯白/橘黄/浅黄效果最好"
+  cyan: "rgba(18, 51, 48, 1)",
+  blue: "rgba(22, 35, 63, 1)", // "浅蓝背景配深蓝文字"
+  purple: "rgba(26, 26, 26, 1)",
 };
 
 /**
@@ -161,7 +161,7 @@ function pickCaptionInk(bg: { r: number; g: number; b: number }): { fill: string
     // Dark background: white/light-warm text is near-universally the right
     // call regardless of hue — blue/dark-red/purple text on a dark
     // background is explicitly called out as illegible.
-    return { fill: "rgba(255, 255, 255, 0.92)", shadow: "rgba(0, 0, 0, 0.55)" };
+    return { fill: "rgba(255, 255, 255, 1)", shadow: "rgba(0, 0, 0, 0.55)" };
   }
   const bucket = classifyHue(h, s);
   const fill = LIGHT_BG_INK[bucket];
@@ -282,12 +282,22 @@ async function renderParagraphOverlay(
   const startY = areaHeight / 2 - (lineHeight * (lines.length - 1)) / 2;
 
   const { fill: fillColor, shadow: shadowColor } = ink;
+  // A soft drop shadow alone read as "blurry" rather than legible at actual
+  // feed-thumbnail size, especially on the thin brush-script strokes — a
+  // thin stroke in the same contrasting tone sharpens the glyph edges the
+  // way the headline treatment's outline already does.
+  const lineWidth = Math.max(1.5, Math.round(fontSize * 0.06));
 
   for (let i = 0; i < lines.length; i++) {
     const y = startY + i * lineHeight;
     ctx.shadowColor = shadowColor;
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 3;
     ctx.shadowOffsetY = 1;
+    ctx.lineWidth = lineWidth;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = shadowColor;
+    ctx.strokeText(lines[i], anchorX, y);
+    ctx.shadowColor = "transparent";
     ctx.fillStyle = fillColor;
     ctx.fillText(lines[i], anchorX, y);
   }
@@ -327,6 +337,7 @@ async function renderVerticalOverlay(
   ctx.font = `${fontSize}px "${family}"`;
 
   const { fill: fillColor, shadow: shadowColor } = ink;
+  const lineWidth = Math.max(1.5, Math.round(fontSize * 0.06));
 
   const anchorX = areaWidth / 2;
   const startY = height / 2 - totalTextHeight / 2 + charSpacing / 2;
@@ -334,8 +345,13 @@ async function renderVerticalOverlay(
   for (let i = 0; i < chars.length; i++) {
     const y = startY + i * charSpacing;
     ctx.shadowColor = shadowColor;
-    ctx.shadowBlur = 5;
+    ctx.shadowBlur = 3;
     ctx.shadowOffsetY = 1;
+    ctx.lineWidth = lineWidth;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = shadowColor;
+    ctx.strokeText(chars[i], anchorX, y);
+    ctx.shadowColor = "transparent";
     ctx.fillStyle = fillColor;
     ctx.fillText(chars[i], anchorX, y);
   }
@@ -371,7 +387,7 @@ async function renderCaptionOverlay(
 ): Promise<Buffer> {
   const hasSubtitle = Boolean(subtitle?.trim());
   const areaHeight = getCaptionAreaHeight(height, hasSubtitle);
-  const baseFontSize = Math.round(areaHeight * (hasSubtitle ? 0.34 : 0.3));
+  const baseFontSize = Math.round(areaHeight * (hasSubtitle ? 0.24 : 0.2));
   const family = getCaptionFontFamily(captionFont);
 
   const canvas = createCanvas(width, areaHeight);
@@ -387,7 +403,7 @@ async function renderCaptionOverlay(
   const fitsOneLine = ctx.measureText(text).width <= maxLineWidth;
 
   const lines = fitsOneLine ? [text] : splitIntoTwoLines(text);
-  const fontSize = fitsOneLine ? baseFontSize : Math.round(baseFontSize * 0.74);
+  const fontSize = fitsOneLine ? baseFontSize : Math.round(baseFontSize * 0.68);
 
   // Reference example the client sent back a second time ("深夜解压仪式"):
   // a solid dark/near-black headline with a clean white outline (not a
