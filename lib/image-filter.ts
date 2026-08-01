@@ -218,9 +218,11 @@ export type TextTreatment =
  * a color choice). See COVER_STYLE_NAMES in lib/anthropic.ts for what each
  * id is.
  */
-// Deliberately spread across left/center/right — an earlier version leaned
-// heavily left (5 of 10 ids), which read as "text is always on the left"
-// once a photo repeatedly landed on those ids (see client feedback).
+// The align/side values below are placeholders only — randomizeAlignment()
+// (see applyBrandStyle) overrides them per rendered variant, per the
+// client's request not to tie direction to the style at all. What actually
+// matters here per id is "kind" (headline/paragraph/vertical) and, for
+// headline, "chip" (poster color block vs floating text).
 export const COVER_STYLE_TEXT_TREATMENT: Record<number, TextTreatment> = {
   1: { kind: "headline", chip: false, align: "left" }, // Real-Person Direct Shot
   2: { kind: "headline", chip: true, align: "center" }, // Before/After Transformation
@@ -235,6 +237,23 @@ export const COVER_STYLE_TEXT_TREATMENT: Record<number, TextTreatment> = {
 };
 
 const DEFAULT_TEXT_TREATMENT = { kind: "headline", chip: false, align: "center" } as const;
+
+/**
+ * The client didn't want alignment tied to a fixed per-style default at all
+ * ("不要指定方向，随意random摆放") — each rendered variant now rolls its own
+ * left/center/right (or, for the vertical kind, left/right side)
+ * independently, on top of whatever kind/chip the cover style itself
+ * dictates. Keeps composition variety (headline vs paragraph vs vertical,
+ * chip vs floating) tied to the catalogue pick, while position is genuinely
+ * random per variant.
+ */
+function randomizeAlignment(treatment: TextTreatment): TextTreatment {
+  if (treatment.kind === "vertical") {
+    return { ...treatment, side: Math.random() < 0.5 ? "left" : "right" };
+  }
+  const options = ["left", "center", "right"] as const;
+  return { ...treatment, align: options[Math.floor(Math.random() * options.length)] };
+}
 
 /**
  * A short 2-4 line reflective/diary-style caption in a delicate brush-
@@ -917,9 +936,10 @@ export async function applyBrandStyle(
   }
 
   if (hasHookText) {
-    const baseTreatment =
+    const baseTreatment = randomizeAlignment(
       (options.coverStyleId !== undefined ? COVER_STYLE_TEXT_TREATMENT[options.coverStyleId] : undefined) ??
-      DEFAULT_TEXT_TREATMENT;
+        DEFAULT_TEXT_TREATMENT,
+    );
     const paragraphText = options.paragraph?.trim();
     const bottomLogoClearance = Math.round(height * 0.22);
 
