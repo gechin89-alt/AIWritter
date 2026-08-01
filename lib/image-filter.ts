@@ -127,11 +127,24 @@ const LIGHT_BG_INK: Record<HueBucket, string> = {
  * color. A trend style's overall mood can be "bright" while the specific
  * strip the text lands on is dark (e.g. dark clothing/floor in the frame),
  * which a whole-photo or gradient-only proxy misses entirely.
+ *
+ * Also returns "roughness": the mean absolute luminance difference between
+ * ADJACENT cells of a coarse grid over the region. Plain stdDev/variance
+ * looked like the obvious "is this background busy" signal, but doesn't
+ * actually work — a smooth two-zone photo (e.g. dark clothing on one side,
+ * bright blurred background on the other) has HIGH variance despite being
+ * visually calm, while genuinely scattered clutter (a shelf full of small
+ * objects) can have similar or lower variance despite looking busier.
+ * Roughness (local cell-to-cell change) tracks the "does this actually look
+ * cluttered" judgment much better — confirmed against the client's own two
+ * examples: a smooth photo they said didn't need a scrim measured low
+ * roughness, a genuinely cluttered one they said did need it measured
+ * roughly double that.
  */
 async function sampleRegionColor(
   buffer: Buffer,
   region: { left: number; top: number; width: number; height: number },
-): Promise<{ r: number; g: number; b: number }> {
+): Promise<{ r: number; g: number; b: number; roughness: number }> {
   const meta = await sharp(buffer).metadata();
   const imgW = meta.width ?? region.left + region.width;
   const imgH = meta.height ?? region.top + region.height;
@@ -139,12 +152,48 @@ async function sampleRegionColor(
   const top = Math.max(0, Math.min(Math.round(region.top), imgH - 1));
   const width = Math.max(1, Math.min(Math.round(region.width), imgW - left));
   const height = Math.max(1, Math.min(Math.round(region.height), imgH - top));
+
+  const gridSize = 10;
   const { data } = await sharp(buffer)
     .extract({ left, top, width, height })
-    .resize(1, 1)
+    .resize(gridSize, gridSize, { fit: "fill" })
     .raw()
     .toBuffer({ resolveWithObject: true });
-  return { r: data[0], g: data[1], b: data[2] };
+
+  const sampleCount = data.length / 3;
+  let sumR = 0;
+  let sumG = 0;
+  let sumB = 0;
+  const lum: number[][] = Array.from({ length: gridSize }, () => new Array(gridSize).fill(0));
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const i = (y * gridSize + x) * 3;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      sumR += r;
+      sumG += g;
+      sumB += b;
+      lum[y][x] = 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+  }
+
+  let diffSum = 0;
+  let diffCount = 0;
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      if (x + 1 < gridSize) {
+        diffSum += Math.abs(lum[y][x] - lum[y][x + 1]);
+        diffCount++;
+      }
+      if (y + 1 < gridSize) {
+        diffSum += Math.abs(lum[y][x] - lum[y + 1][x]);
+        diffCount++;
+      }
+    }
+  }
+
+  return { r: sumR / sampleCount, g: sumG / sampleCount, b: sumB / sampleCount, roughness: diffSum / diffCount };
 }
 
 /**
@@ -187,6 +236,11 @@ function withAlpha(rgba: string, alpha: number): string {
  * defeats that — the scrim locally evens out contrast under the text
  * regardless of what's directly behind each individual character.
  */
+// See sampleRegionColor's "roughness" doc comment. Calibrated between the
+// client's two reference cases: ~11 for the smooth diffuser photo (no scrim
+// wanted) and ~21 for the cluttered classroom photo (scrim wanted).
+const SCRIM_ROUGHNESS_THRESHOLD = 15;
+
 function drawScrim(ctx: SKRSContext2D, x: number, y: number, w: number, h: number, scrimTone: string) {
   ctx.fillStyle = withAlpha(scrimTone, 0.3);
   ctx.fillRect(x, y, w, h);
@@ -306,6 +360,7 @@ async function renderParagraphOverlay(
   width: number,
   align: "left" | "center" | "right",
   ink: { fill: string; shadow: string },
+  needsScrim: boolean,
 ): Promise<{ buffer: Buffer; areaHeight: number }> {
   const family = getCaptionFontFamily("script");
   const lines = paragraphLines(paragraph);
@@ -333,9 +388,14 @@ async function renderParagraphOverlay(
   // A single sampled ink color is right for a UNIFORM background, but a
   // busy/patchy one (mixed light and dark objects directly behind the text)
   // defeats it — a soft wash behind the whole block keeps every line legible
-  // regardless of what's directly behind each individual character.
-  const scrimPad = fontSize * 0.5;
-  drawScrim(ctx, 0, startY - lineHeight / 2 - scrimPad, width, lineHeight * lines.length + scrimPad * 2, shadowColor);
+  // regardless of what's directly behind each individual character. Only
+  // drawn when the caller's variance check says the background actually
+  // needs it — otherwise it just adds an unnecessary tinted band and fights
+  // the quiet, unboxed look this treatment is meant to have.
+  if (needsScrim) {
+    const scrimPad = fontSize * 0.5;
+    drawScrim(ctx, 0, startY - lineHeight / 2 - scrimPad, width, lineHeight * lines.length + scrimPad * 2, shadowColor);
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const y = startY + i * lineHeight;
@@ -371,6 +431,7 @@ async function renderVerticalOverlay(
   height: number,
   side: "left" | "right",
   ink: { fill: string; shadow: string },
+  needsScrim: boolean,
 ): Promise<{ buffer: Buffer; areaWidth: number }> {
   const family = getCaptionFontFamily("script");
   const chars = Array.from(text.trim()).slice(0, 12);
@@ -393,10 +454,14 @@ async function renderVerticalOverlay(
 
   // Same reasoning as the paragraph treatment's scrim: a single sampled ink
   // color can't account for a busy/patchy background (this is exactly what
-  // the client's screenshot showed — a vertical strip crossing a whiteboard
-  // edge, a grey ball light, and colorful shelf clutter all at once).
-  const scrimPad = fontSize * 0.4;
-  drawScrim(ctx, 0, height / 2 - totalTextHeight / 2 - scrimPad, areaWidth, totalTextHeight + scrimPad * 2, shadowColor);
+  // the client's classroom-photo screenshot showed — a vertical strip
+  // crossing a whiteboard edge, a grey ball light, and colorful shelf
+  // clutter all at once). Skipped on a uniform background per the variance
+  // check — the diffuser photo's smoother middle band didn't need one.
+  if (needsScrim) {
+    const scrimPad = fontSize * 0.4;
+    drawScrim(ctx, 0, height / 2 - totalTextHeight / 2 - scrimPad, areaWidth, totalTextHeight + scrimPad * 2, shadowColor);
+  }
 
   for (let i = 0; i < chars.length; i++) {
     const y = startY + i * charSpacing;
@@ -1007,7 +1072,18 @@ export async function applyBrandStyle(
         height: areaHeight,
       });
       const ink = pickCaptionInk(sampled);
-      const { buffer: overlayBuffer } = await renderParagraphOverlay(paragraphText, width, baseTreatment.align, ink);
+      // Only add the scrim when the background is genuinely patchy (mixed
+      // light/dark within the text's own footprint) — on a uniform
+      // background it just adds an unnecessary tinted band and fights the
+      // quiet, unboxed look this treatment is meant to have.
+      const needsScrim = sampled.roughness > SCRIM_ROUGHNESS_THRESHOLD;
+      const { buffer: overlayBuffer } = await renderParagraphOverlay(
+        paragraphText,
+        width,
+        baseTreatment.align,
+        ink,
+        needsScrim,
+      );
       buffer = await sharp(buffer)
         .composite([{ input: overlayBuffer, left: 0, top }])
         .jpeg({ quality: 92 })
@@ -1021,11 +1097,13 @@ export async function applyBrandStyle(
       const left = baseTreatment.side === "left" ? sideMargin : width - areaWidth - sideMargin;
       const sampled = await sampleRegionColor(buffer, { left, top: 0, width: areaWidth, height });
       const ink = pickCaptionInk(sampled);
+      const needsScrim = sampled.roughness > SCRIM_ROUGHNESS_THRESHOLD;
       const { buffer: overlayBuffer } = await renderVerticalOverlay(
         options.hookText!.trim(),
         height,
         baseTreatment.side,
         ink,
+        needsScrim,
       );
       buffer = await sharp(buffer)
         .composite([{ input: overlayBuffer, left, top: 0 }])
