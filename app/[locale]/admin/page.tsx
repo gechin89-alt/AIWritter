@@ -12,6 +12,7 @@ import { CampaignPrizeManager } from "@/components/campaign-prize-manager";
 import { CampaignViewButton } from "@/components/campaign-view-button";
 import { CampaignEditForm } from "@/components/campaign-edit-form";
 import { CampaignPhotoTest } from "@/components/campaign-photo-test";
+import { CampaignPosterGenerator } from "@/components/campaign-poster-generator";
 import { NotifyUserButton } from "@/components/notify-user-button";
 import { UserQuotaEditor } from "@/components/user-quota-editor";
 import { AdminResetPasswordButton } from "@/components/admin-reset-password-button";
@@ -260,6 +261,27 @@ export default async function AdminPage({
                           }}
                         />
                       )}
+                      <CampaignPosterGenerator
+                        campaignId={c.id}
+                        label={t("generatePoster")}
+                        labels={{
+                          uploadCta: tc("uploadCta"),
+                          removePhoto: tc("removePhoto"),
+                          briefLabel: t("posterBriefLabel"),
+                          briefPlaceholder: t("posterBriefPlaceholder"),
+                          draftCta: t("posterDraftCta"),
+                          drafting: t("posterDrafting"),
+                          titleLabel: t("posterTitleLabel"),
+                          subtitleLabel: t("posterSubtitleLabel"),
+                          taglineLabel: t("posterTaglineLabel"),
+                          generateCta: t("posterGenerateCta"),
+                          generating: t("posterGenerating"),
+                          result: t("posterResult"),
+                          download: t("posterDownload"),
+                          error: t("posterError"),
+                          hint: t("posterHint"),
+                        }}
+                      />
                     </div>
                   </td>
                 </tr>

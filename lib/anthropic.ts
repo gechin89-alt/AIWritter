@@ -759,3 +759,67 @@ async function analyzePhotoForStylingViaAi(
 
   return plans.length > 0 ? plans.slice(0, 3) : buildTemplateStylingPlans(input.locale);
 }
+
+export type PosterCopy = { title: string; subtitle: string; tagline: string };
+
+// Distinct from the customer-photo cover-style system above — this drafts
+// copy for a standalone campaign/event PROMO poster (admin-generated, once
+// per campaign, not per customer), matching the client's own reference
+// example: a short punchy title (often two words joined by "·"), a softer
+// supporting subtitle line, and a small tagline beneath both.
+const POSTER_SYSTEM_PROMPT = `You are writing the headline text for a promotional event/campaign poster — NOT a social media post, and not written from a customer's point of view. This is marketing copy the brand itself puts on a poster to advertise an event or campaign.
+
+Write exactly three things:
+1. "title": the big, bold hook of the poster. Very short — 2-6 characters if Chinese, 1-4 words if English. Punchy and evocative, not a literal description (e.g. a wellness event might be "归 · 沙龙" rather than "香薰工作坊"). A "·" or similar separator between two short words is a common, good pattern but not required.
+2. "subtitle": one short supporting line underneath the title that adds emotional resonance or clarifies the theme — roughly 4-12 characters if Chinese, 3-8 words if English. Never just repeat the title in other words.
+3. "tagline": an even smaller line beneath both, roughly 6-20 characters if Chinese, 4-14 words if English — can name the actual format/ingredients/activities (e.g. "茶 × 香气 × 五感体验") or a short qualifying detail. Keep it understated, not a hard sell.
+
+Base all three on the brand/campaign context given. Do not invent specific dates, prices, locations, or any other logistical detail — those are not part of this poster's text. Write in the language given by "Output language" in the context, if present.
+
+Respond with ONLY minified JSON, no markdown fences, in exactly this shape:
+{"title":"...","subtitle":"...","tagline":"..."}`;
+
+export async function generatePosterCopy(input: {
+  brandName?: string;
+  productDescription?: string;
+  briefText?: string;
+  locale?: "en" | "zh";
+}): Promise<PosterCopy> {
+  function templateFallback(): PosterCopy {
+    const isZh = input.locale !== "en";
+    return isZh
+      ? { title: input.brandName ?? "活动预告", subtitle: "诚挚邀请你的参与", tagline: "" }
+      : { title: input.brandName ?? "Event", subtitle: "You're warmly invited", tagline: "" };
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return templateFallback();
+  }
+
+  const contextLines = [
+    input.locale ? `Output language: ${input.locale === "zh" ? "Chinese (Simplified)" : "English"}` : null,
+    input.brandName ? `Brand/campaign name: ${input.brandName}` : null,
+    input.productDescription ? `Brand/campaign description: ${input.productDescription}` : null,
+    input.briefText ? `What this specific poster is for: ${input.briefText}` : null,
+  ].filter(Boolean);
+
+  try {
+    const response = await createMessage({
+      model: MODEL,
+      max_tokens: 512,
+      system: POSTER_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: contextLines.join("\n") || "No additional context given." }],
+    });
+    const textBlock = response.content.find((block) => block.type === "text");
+    const raw = textBlock && "text" in textBlock ? textBlock.text : "";
+    const parsed = parseModelJson(raw);
+    const title = typeof parsed?.title === "string" ? sanitizeHookText(parsed.title) : "";
+    const subtitle = typeof parsed?.subtitle === "string" ? sanitizeHookText(parsed.subtitle) : "";
+    const tagline = typeof parsed?.tagline === "string" ? sanitizeHookText(parsed.tagline) : "";
+    if (!title || !subtitle) return templateFallback();
+    return { title, subtitle, tagline };
+  } catch (err) {
+    if (err instanceof AiUnavailableError) return templateFallback();
+    throw err;
+  }
+}

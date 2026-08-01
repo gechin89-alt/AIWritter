@@ -1187,3 +1187,136 @@ export async function applyBrandStyle(
 
   return uploadBufferToCloudinary(buffer);
 }
+
+/**
+ * Renders the title/subtitle/tagline block for a standalone campaign-poster
+ * image (see applyPosterStyle) — always white, top-left, over a fixed dark
+ * gradient scrim rather than a photo-sampled ink color: unlike the
+ * per-customer cover styles, this is a single deliberate "moody event
+ * poster" look (matching the client's own reference), not something that
+ * needs to adapt to a random unpredictable photo.
+ */
+async function renderPosterTextOverlay(
+  title: string,
+  subtitle: string,
+  tagline: string | undefined,
+  width: number,
+  height: number,
+): Promise<Buffer> {
+  const family = getCaptionFontFamily("bold");
+  // "·"/"・" have no glyph in the bundled font (renders as a tofu box, the
+  // same issue hit before with day labels) — "×" renders fine and reads
+  // just as well as a short-word separator.
+  const dotFix = (s: string) => s.replace(/[·・]/g, "×");
+  title = dotFix(title);
+  subtitle = dotFix(subtitle);
+  tagline = tagline ? dotFix(tagline) : tagline;
+
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+
+  const marginX = Math.round(width * 0.09);
+  const maxWidth = width * 0.82;
+  let y = Math.round(height * 0.1);
+
+  let titleFontSize = Math.round(width * 0.13);
+  ctx.font = `${titleFontSize}px "${family}"`;
+  while (ctx.measureText(title).width > maxWidth && titleFontSize > width * 0.05) {
+    titleFontSize -= 2;
+    ctx.font = `${titleFontSize}px "${family}"`;
+  }
+  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+  ctx.shadowBlur = 12;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+  ctx.fillText(title, marginX, y);
+  y += Math.round(titleFontSize * 1.3);
+
+  let subtitleFontSize = Math.round(width * 0.05);
+  ctx.font = `${subtitleFontSize}px "${family}"`;
+  while (ctx.measureText(subtitle).width > maxWidth && subtitleFontSize > width * 0.03) {
+    subtitleFontSize -= 1;
+    ctx.font = `${subtitleFontSize}px "${family}"`;
+  }
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+  ctx.fillText(subtitle, marginX, y);
+  y += Math.round(subtitleFontSize * 1.7);
+
+  if (tagline?.trim()) {
+    const taglineFontSize = Math.round(width * 0.032);
+    ctx.font = `${taglineFontSize}px "${family}"`;
+    ctx.shadowBlur = 6;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+    ctx.fillText(tagline.trim(), marginX, y);
+  }
+
+  return canvas.toBuffer("image/png");
+}
+
+/**
+ * A standalone campaign/event promo poster — admin-generated once per
+ * campaign to advertise it, distinct from the per-customer cover-style
+ * system above (which never produces this look). Always applies a fixed
+ * dark top-to-mid gradient scrim so the title/subtitle/tagline block stays
+ * legible regardless of the photo, matching the client's own moody-poster
+ * reference rather than adapting per-photo like the customer covers do.
+ */
+export async function applyPosterStyle(
+  inputBuffer: Buffer,
+  options: {
+    title: string;
+    subtitle: string;
+    tagline?: string | null;
+    brandColorHex?: string | null;
+  },
+): Promise<string> {
+  let buffer = await sharp(inputBuffer).rotate().jpeg({ quality: 92 }).toBuffer();
+  buffer = await cropTo3by4(buffer);
+  const { width = 800, height = 800 } = await sharp(buffer).metadata();
+
+  const scrimHeight = Math.round(height * 0.55);
+  const scrimSvg = `<svg width="${width}" height="${scrimHeight}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="black" stop-opacity="0.62" />
+        <stop offset="100%" stop-color="black" stop-opacity="0" />
+      </linearGradient>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#g)" />
+  </svg>`;
+  const scrimBuffer = await sharp(Buffer.from(scrimSvg)).png().toBuffer();
+  buffer = await sharp(buffer)
+    .composite([{ input: scrimBuffer, left: 0, top: 0 }])
+    .jpeg({ quality: 92 })
+    .toBuffer();
+
+  const rgb = options.brandColorHex ? hexToRgb(options.brandColorHex) : null;
+  if (rgb) {
+    const brandOverlay = await sharp({
+      create: { width, height, channels: 4, background: { ...rgb, alpha: 0.1 } },
+    })
+      .png()
+      .toBuffer();
+    buffer = await sharp(buffer)
+      .composite([{ input: brandOverlay, blend: "soft-light" }])
+      .jpeg({ quality: 92 })
+      .toBuffer();
+  }
+
+  const overlayBuffer = await renderPosterTextOverlay(
+    options.title.trim(),
+    options.subtitle.trim(),
+    options.tagline?.trim(),
+    width,
+    height,
+  );
+  buffer = await sharp(buffer)
+    .composite([{ input: overlayBuffer, left: 0, top: 0 }])
+    .jpeg({ quality: 92 })
+    .toBuffer();
+
+  return uploadBufferToCloudinary(buffer);
+}
