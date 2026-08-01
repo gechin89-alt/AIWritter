@@ -76,12 +76,6 @@ function escapeXml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function relativeLuminance(hex: string): number {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return 0.5;
-  return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-}
-
 function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
   const rn = r / 255;
   const gn = g / 255;
@@ -373,6 +367,7 @@ async function renderCaptionOverlay(
   captionFont: CaptionFont,
   subtitle?: string,
   treatment: HeadlineTreatment = DEFAULT_TEXT_TREATMENT,
+  headlineInk?: { fill: string; shadow: string },
 ): Promise<Buffer> {
   const hasSubtitle = Boolean(subtitle?.trim());
   const areaHeight = getCaptionAreaHeight(height, hasSubtitle);
@@ -394,24 +389,27 @@ async function renderCaptionOverlay(
   const lines = fitsOneLine ? [text] : splitIntoTwoLines(text);
   const fontSize = fitsOneLine ? baseFontSize : Math.round(baseFontSize * 0.74);
 
-  const gradient = ctx.createLinearGradient(0, 0, width, 0);
-  gradient.addColorStop(0, gradientColors[0]);
-  gradient.addColorStop(1, gradientColors[1]);
-
-  // The text needs to stay legible against whatever the underlying photo
-  // looks like, not just the gradient itself — a solid outline (color
-  // picked opposite the gradient's own brightness) does that far more
-  // reliably than a soft drop shadow alone, matching how real viral covers
-  // guarantee text pops on any background.
-  const avgLuminance = (relativeLuminance(gradientColors[0]) + relativeLuminance(gradientColors[1])) / 2;
-  const outlineColor = avgLuminance > 0.55 ? "rgba(20, 20, 20, 0.9)" : "rgba(255, 255, 255, 0.9)";
-  // The subtitle is always white-on-dark-outline regardless of the
-  // headline's own gradient tone — unlike the headline, it doesn't get to
-  // pick its position for a favorable background, so it needs the single
-  // most universally legible combo rather than one that matches the
-  // headline's mood but can land dark-on-dark against a busy photo.
-  const subtitleFillColor = "rgba(255, 255, 255, 0.95)";
-  const subtitleOutlineColor = "rgba(20, 20, 20, 0.85)";
+  // Reference example the client sent back a second time ("深夜解压仪式"):
+  // a solid dark/near-black headline with a clean white outline (not a
+  // rainbow gradient across the characters), paired with a warm gold
+  // subtitle underneath. headlineInk is sampled from the actual photo
+  // pixels behind this text (see sampleRegionColor + pickCaptionInk in
+  // applyBrandStyle) the same way the paragraph/vertical treatments already
+  // do — falls back to a gradientColors-average approximation for the one
+  // legacy caller that doesn't have a real pixel sample available.
+  const ink = headlineInk ?? pickCaptionInk({
+    r: ((hexToRgb(gradientColors[0])?.r ?? 40) + (hexToRgb(gradientColors[1])?.r ?? 40)) / 2,
+    g: ((hexToRgb(gradientColors[0])?.g ?? 40) + (hexToRgb(gradientColors[1])?.g ?? 40)) / 2,
+    b: ((hexToRgb(gradientColors[0])?.b ?? 40) + (hexToRgb(gradientColors[1])?.b ?? 40)) / 2,
+  });
+  const headlineFillColor = ink.fill;
+  const outlineColor = ink.shadow;
+  // Warm gold accent for the subtitle (matches the client's reference)
+  // instead of plain white — still keeps a soft dark outline as a legibility
+  // safety net since, unlike the headline, the subtitle doesn't get to pick
+  // a favorable spot for itself.
+  const subtitleFillColor = "rgba(255, 209, 102, 0.95)";
+  const subtitleOutlineColor = "rgba(20, 20, 20, 0.8)";
   const lineHeight = fontSize * 1.25;
   const subtitleFontSize = Math.round(fontSize * 0.42);
   const subtitleGap = Math.round(fontSize * 0.32);
@@ -476,7 +474,7 @@ async function renderCaptionOverlay(
     // Fill goes on top without its own shadow — the stroke pass above
     // already provided the depth/contrast.
     ctx.shadowColor = "transparent";
-    ctx.fillStyle = gradient;
+    ctx.fillStyle = headlineFillColor;
     ctx.fillText(lines[i], anchorX, y);
   }
 
@@ -970,15 +968,6 @@ export async function applyBrandStyle(
       // regardless of the cover style's own default.
       const treatment: HeadlineTreatment =
         options.textPosition === "middle" ? { ...headlineTreatment, chip: true } : headlineTreatment;
-      const overlayBuffer = await renderCaptionOverlay(
-        options.hookText!.trim(),
-        width,
-        height,
-        cfg.captionGradient,
-        cfg.fontKey,
-        options.subtitle?.trim(),
-        treatment,
-      );
       // XHS feed thumbnails get their top ~15% covered by the app's own UI
       // chrome, so "top" placement leaves that strip blank and sits in the
       // upper-center third instead of flush against the top edge. "middle"
@@ -995,6 +984,22 @@ export async function applyBrandStyle(
       } else {
         top = Math.round(height * 0.13);
       }
+      // Chip mode already guarantees contrast via its own flat color block —
+      // only the floating (no-chip) look needs a real pixel sample to pick a
+      // matching ink color the way the reference example does.
+      const headlineInk = treatment.chip
+        ? undefined
+        : pickCaptionInk(await sampleRegionColor(buffer, { left: 0, top, width, height: areaHeight }));
+      const overlayBuffer = await renderCaptionOverlay(
+        options.hookText!.trim(),
+        width,
+        height,
+        cfg.captionGradient,
+        cfg.fontKey,
+        options.subtitle?.trim(),
+        treatment,
+        headlineInk,
+      );
       buffer = await sharp(buffer)
         .composite([{ input: overlayBuffer, left: 0, top }])
         .jpeg({ quality: 92 })
