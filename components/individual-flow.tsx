@@ -598,7 +598,7 @@ export function IndividualFlow({
           <button
             type="button"
             onClick={() => setPhotoStepConfirmed(true)}
-            disabled={photoSelectionPending || stylingPhoto || uploading}
+            disabled={photoSelectionPending || stylingPhoto || uploading || Boolean(error)}
             className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {t("continueLabel")}

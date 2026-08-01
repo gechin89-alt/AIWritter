@@ -1113,7 +1113,8 @@ export function CommercialFlow({
           </button>
           <button
             onClick={() => setContentStepConfirmed(true)}
-            className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark"
+            disabled={Boolean(error)}
+            className="rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {tc("continueToPhoto")}
           </button>
@@ -1142,7 +1143,7 @@ export function CommercialFlow({
           <button
             type="button"
             onClick={() => setPhotoStepConfirmed(true)}
-            disabled={!mediaPath || photoSelectionPending || stylingPhoto || uploading}
+            disabled={!mediaPath || photoSelectionPending || stylingPhoto || uploading || Boolean(error)}
             className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {tc("continueLabel")}
@@ -1309,7 +1310,7 @@ export function CommercialFlow({
 
           <button
             onClick={() => setFollowUpIndex(followUpIndex + 1)}
-            disabled={!followUpAnswers[followUpIndex]?.trim()}
+            disabled={!followUpAnswers[followUpIndex]?.trim() || Boolean(error)}
             className="mt-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
           >
             {tc("continueLabel")}
