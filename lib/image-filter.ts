@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas, type SKRSContext2D } from "@napi-rs/canvas";
 import type { LogoPosition, TextPosition } from "./anthropic";
 import { uploadBufferToCloudinary } from "./cloudinary";
 import { getCaptionFontFamily, type CaptionFont } from "./fonts";
@@ -172,6 +172,26 @@ function pickCaptionInk(bg: { r: number; g: number; b: number }): { fill: string
   return { fill, shadow };
 }
 
+function withAlpha(rgba: string, alpha: number): string {
+  const match = rgba.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/);
+  if (!match) return rgba;
+  return `rgba(${match[1]}, ${match[2]}, ${match[3]}, ${alpha})`;
+}
+
+/**
+ * A soft, low-opacity wash (not a hard-edged poster chip) behind
+ * paragraph/vertical text, using the opposite tone from the text's own ink
+ * (pickCaptionInk's "shadow" is already that opposite tone). A single
+ * sampled average color picks the right ink for a UNIFORM background, but a
+ * busy/patchy background (mixed light and dark objects behind the text)
+ * defeats that — the scrim locally evens out contrast under the text
+ * regardless of what's directly behind each individual character.
+ */
+function drawScrim(ctx: SKRSContext2D, x: number, y: number, w: number, h: number, scrimTone: string) {
+  ctx.fillStyle = withAlpha(scrimTone, 0.3);
+  ctx.fillRect(x, y, w, h);
+}
+
 // Height reserved for the caption overlay — shared with callers so they can
 // work out where to composite it (e.g. vertically centering a "middle"
 // placement) without duplicating the formula. A headline+subtitle pair
@@ -310,6 +330,13 @@ async function renderParagraphOverlay(
   // way the headline treatment's outline already does.
   const lineWidth = Math.max(1.5, Math.round(fontSize * 0.06));
 
+  // A single sampled ink color is right for a UNIFORM background, but a
+  // busy/patchy one (mixed light and dark objects directly behind the text)
+  // defeats it — a soft wash behind the whole block keeps every line legible
+  // regardless of what's directly behind each individual character.
+  const scrimPad = fontSize * 0.5;
+  drawScrim(ctx, 0, startY - lineHeight / 2 - scrimPad, width, lineHeight * lines.length + scrimPad * 2, shadowColor);
+
   for (let i = 0; i < lines.length; i++) {
     const y = startY + i * lineHeight;
     ctx.shadowColor = shadowColor;
@@ -363,6 +390,13 @@ async function renderVerticalOverlay(
 
   const anchorX = areaWidth / 2;
   const startY = height / 2 - totalTextHeight / 2 + charSpacing / 2;
+
+  // Same reasoning as the paragraph treatment's scrim: a single sampled ink
+  // color can't account for a busy/patchy background (this is exactly what
+  // the client's screenshot showed — a vertical strip crossing a whiteboard
+  // edge, a grey ball light, and colorful shelf clutter all at once).
+  const scrimPad = fontSize * 0.4;
+  drawScrim(ctx, 0, height / 2 - totalTextHeight / 2 - scrimPad, areaWidth, totalTextHeight + scrimPad * 2, shadowColor);
 
   for (let i = 0; i < chars.length; i++) {
     const y = startY + i * charSpacing;
