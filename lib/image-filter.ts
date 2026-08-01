@@ -202,8 +202,8 @@ function splitIntoTwoLines(text: string): [string, string] {
 }
 
 export type TextTreatment =
-  | { kind: "headline"; chip: boolean; align: "left" | "center" }
-  | { kind: "paragraph"; align: "left" | "center" }
+  | { kind: "headline"; chip: boolean; align: "left" | "center" | "right" }
+  | { kind: "paragraph"; align: "left" | "center" | "right" }
   | { kind: "vertical"; side: "left" | "right" };
 
 /**
@@ -218,16 +218,19 @@ export type TextTreatment =
  * a color choice). See COVER_STYLE_NAMES in lib/anthropic.ts for what each
  * id is.
  */
+// Deliberately spread across left/center/right — an earlier version leaned
+// heavily left (5 of 10 ids), which read as "text is always on the left"
+// once a photo repeatedly landed on those ids (see client feedback).
 export const COVER_STYLE_TEXT_TREATMENT: Record<number, TextTreatment> = {
   1: { kind: "headline", chip: false, align: "left" }, // Real-Person Direct Shot
   2: { kind: "headline", chip: true, align: "center" }, // Before/After Transformation
-  3: { kind: "headline", chip: true, align: "left" }, // Bold Headline / Color Block
+  3: { kind: "headline", chip: true, align: "right" }, // Bold Headline / Color Block
   4: { kind: "vertical", side: "left" }, // Pain Point + Contrast Portrait
   5: { kind: "paragraph", align: "left" }, // Confessional / Story Hook
-  6: { kind: "headline", chip: true, align: "center" }, // Reveal-Half Suspense Hook
+  6: { kind: "headline", chip: true, align: "right" }, // Reveal-Half Suspense Hook
   7: { kind: "headline", chip: false, align: "center" }, // Two-Person Interactive Frame
   8: { kind: "headline", chip: true, align: "center" }, // Cross-Category Mashup
-  9: { kind: "paragraph", align: "left" }, // Real-Life / Lived-In Scene
+  9: { kind: "paragraph", align: "right" }, // Real-Life / Lived-In Scene
   10: { kind: "vertical", side: "right" }, // Minimalist Infographic
 };
 
@@ -262,7 +265,7 @@ function paragraphAreaHeight(lineCount: number, width: number): number {
 async function renderParagraphOverlay(
   paragraph: string,
   width: number,
-  align: "left" | "center",
+  align: "left" | "center" | "right",
   ink: { fill: string; shadow: string },
 ): Promise<{ buffer: Buffer; areaHeight: number }> {
   const family = getCaptionFontFamily("script");
@@ -274,11 +277,11 @@ async function renderParagraphOverlay(
   const canvas = createCanvas(width, areaHeight);
   const ctx = canvas.getContext("2d");
   ctx.textBaseline = "middle";
-  ctx.textAlign = align === "left" ? "left" : "center";
+  ctx.textAlign = align === "center" ? "center" : align;
   ctx.font = `${fontSize}px "${family}"`;
 
   const marginX = width * 0.09;
-  const anchorX = align === "left" ? marginX : width / 2;
+  const anchorX = align === "left" ? marginX : align === "right" ? width - marginX : width / 2;
   const startY = areaHeight / 2 - (lineHeight * (lines.length - 1)) / 2;
 
   const { fill: fillColor, shadow: shadowColor } = ink;
@@ -393,12 +396,12 @@ async function renderCaptionOverlay(
   const canvas = createCanvas(width, areaHeight);
   const ctx = canvas.getContext("2d");
   ctx.textBaseline = "middle";
-  ctx.textAlign = treatment.align === "left" ? "left" : "center";
+  ctx.textAlign = treatment.align === "center" ? "center" : treatment.align;
 
   const marginX = width * 0.08;
-  const anchorX = treatment.align === "left" ? marginX : width / 2;
+  const anchorX = treatment.align === "left" ? marginX : treatment.align === "right" ? width - marginX : width / 2;
 
-  const maxLineWidth = width * (treatment.align === "left" ? 0.78 : 0.86);
+  const maxLineWidth = width * (treatment.align === "center" ? 0.86 : 0.78);
   ctx.font = `${baseFontSize}px "${family}"`;
   const fitsOneLine = ctx.measureText(text).width <= maxLineWidth;
 
@@ -446,7 +449,12 @@ async function renderCaptionOverlay(
     const padY = fontSize * 0.35;
     const chipW = Math.min(width * 0.94, maxTextWidth + padX * 2);
     const chipH = totalBlockHeight + padY * 2;
-    const chipX = treatment.align === "left" ? Math.max(width * 0.03, marginX - padX) : width / 2 - chipW / 2;
+    const chipX =
+      treatment.align === "left"
+        ? Math.max(width * 0.03, marginX - padX)
+        : treatment.align === "right"
+          ? Math.min(width * 0.97 - chipW, width - marginX + padX - chipW)
+          : width / 2 - chipW / 2;
     const chipY = areaHeight / 2 - chipH / 2;
     const chipRgb = hexToRgb(gradientColors[0]) ?? { r: 20, g: 20, b: 20 };
     const chipLuminance = (0.299 * chipRgb.r + 0.587 * chipRgb.g + 0.114 * chipRgb.b) / 255;
