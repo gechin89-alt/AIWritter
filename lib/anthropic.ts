@@ -472,7 +472,7 @@ const LOGO_POSITION_RULE = `logoPosition: the logo badge goes in one of the two 
 // than one judgment applied deterministically by code. See
 // resolveTextPositions() below.
 const FACE_OVERLAP_RULE = `Before anything else, look at the WHOLE photo once (this is the same regardless of the hook-text options below) and determine, for each of these 3 text bands, whether ANY face overlaps it (there may be more than one face — a group photo, a couple, etc. — a band counts as blocked if it overlaps any face at all, even partially):
-- "top": the upper third of the photo
+- "top": the upper ~45% of the photo (a multi-line caption block reaches further down than you might expect — judge generously, not just the top sliver)
 - "middle": vertically centered
 - "bottom": the lower area, above where a logo badge would sit
 Report this as "faceOverlap": {"top":bool,"middle":bool,"bottom":bool}. Also report "leastBadPosition": the one of the three that overlaps a face the LEAST (used only as a fallback if a face is so large it overlaps all three bands).`;
